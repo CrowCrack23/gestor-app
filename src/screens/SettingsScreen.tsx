@@ -7,6 +7,7 @@ import {
   Alert,
   ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as printer from '../services/printer';
 
 export const SettingsScreen: React.FC = () => {
@@ -20,8 +21,9 @@ export const SettingsScreen: React.FC = () => {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
+    <SafeAreaView style={styles.safeArea} edges={['bottom']}>
+      <ScrollView style={styles.container}>
+        <View style={styles.header}>
         <Text style={styles.title}>Configuración</Text>
       </View>
 
@@ -117,14 +119,18 @@ export const SettingsScreen: React.FC = () => {
           Desarrollado con ❤️ usando Expo + React Native
         </Text>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  container: {
+    flex: 1,
   },
   header: {
     padding: 16,

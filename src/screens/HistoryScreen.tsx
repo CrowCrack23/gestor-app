@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Modal,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { Sale } from '../models/Sale';
 import { ReceiptPreview } from '../components/ReceiptPreview';
@@ -121,7 +122,7 @@ export const HistoryScreen: React.FC = () => {
   );
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['bottom']}>
       <View style={styles.header}>
         <Text style={styles.title}>Historial de Ventas</Text>
         <View style={styles.todayTotal}>
@@ -190,7 +191,7 @@ export const HistoryScreen: React.FC = () => {
           </View>
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 };
 
