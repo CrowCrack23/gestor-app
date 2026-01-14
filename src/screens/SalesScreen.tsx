@@ -14,12 +14,21 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { Product } from '../models/Product';
 import { SaleItem as SaleItemModel } from '../models/SaleItem';
+import { PaymentMethod, CashSession } from '../models/CashSession';
 import * as db from '../services/database';
 import * as salesService from '../services/salesService';
 import * as printer from '../services/printer';
 import { formatCurrency } from '../utils/formatters';
+import { useAuth } from '../auth/AuthContext';
+import { CashOpenScreen } from './CashOpenScreen';
+import { CashCloseScreen } from './CashCloseScreen';
 
 export const SalesScreen: React.FC = () => {
+  const { currentUser } = useAuth();
+  const [cashSession, setCashSession] = useState<CashSession | null>(null);
+  const [showCashOpenModal, setShowCashOpenModal] = useState(false);
+  const [showCashCloseModal, setShowCashCloseModal] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [products, setProducts] = useState<Product[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Product[]>([]);
@@ -31,8 +40,26 @@ export const SalesScreen: React.FC = () => {
   useFocusEffect(
     useCallback(() => {
       loadProducts();
+      checkCashSession();
     }, [])
   );
+
+  const checkCashSession = async () => {
+    try {
+      const openSession = await db.getOpenCashSession();
+      setCashSession(openSession);
+      
+      if (!openSession) {
+        setShowCashOpenModal(true);
+      }
+    } catch (error) {
+      console.error('Error al verificar sesión de caja:', error);
+    }
+  };
+
+  const handleCashSessionSuccess = () => {
+    checkCashSession();
+  };
 
   const loadProducts = async () => {
     try {
@@ -120,12 +147,21 @@ export const SalesScreen: React.FC = () => {
       return;
     }
 
+    if (!cashSession) {
+      Alert.alert('Error', 'No hay caja abierta. Abre una caja para poder vender.');
+      setShowCashOpenModal(true);
+      return;
+    }
+
+    // Mostrar selector de método de pago antes de confirmar
     Alert.alert(
-      'Confirmar Venta',
-      `Total: ${formatCurrency(calculateTotal())}\n¿Confirmar la venta?`,
+      'Método de Pago',
+      `Total: ${formatCurrency(calculateTotal())}\nSelecciona el método de pago:`,
       [
         { text: 'Cancelar', style: 'cancel' },
-        { text: 'Vender', onPress: processSale },
+        { text: '💵 Efectivo', onPress: () => { setPaymentMethod('cash'); processSale(); } },
+        { text: '💳 Tarjeta', onPress: () => { setPaymentMethod('card'); processSale(); } },
+        { text: '📱 Transferencia', onPress: () => { setPaymentMethod('transfer'); processSale(); } },
       ]
     );
   };
@@ -144,7 +180,7 @@ export const SalesScreen: React.FC = () => {
       }
 
       // Procesar la venta
-      const sale = await salesService.processSale(cart);
+      const sale = await salesService.processSale(cart, currentUser?.id, paymentMethod, cashSession?.id);
 
       Alert.alert(
         'Venta realizada',
@@ -186,7 +222,17 @@ export const SalesScreen: React.FC = () => {
     <SafeAreaView style={styles.container} edges={['bottom']}>
       {/* Buscador */}
       <View style={styles.searchSection}>
-        <Text style={styles.title}>Nueva Venta</Text>
+        <View style={styles.headerRow}>
+          <Text style={styles.title}>Nueva Venta</Text>
+          {cashSession && (
+            <TouchableOpacity
+              style={styles.cashButton}
+              onPress={() => setShowCashCloseModal(true)}
+            >
+              <Text style={styles.cashButtonText}>🔒 Cerrar Caja</Text>
+            </TouchableOpacity>
+          )}
+        </View>
         
         <View style={styles.searchRow}>
           <View style={styles.searchContainer}>
@@ -312,6 +358,20 @@ export const SalesScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
       )}
+
+      {/* Modales de Caja */}
+      <CashOpenScreen
+        visible={showCashOpenModal}
+        onClose={() => setShowCashOpenModal(false)}
+        onSuccess={handleCashSessionSuccess}
+      />
+      
+      <CashCloseScreen
+        visible={showCashCloseModal}
+        session={cashSession}
+        onClose={() => setShowCashCloseModal(false)}
+        onSuccess={handleCashSessionSuccess}
+      />
     </SafeAreaView>
   );
 };
@@ -330,11 +390,27 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 16,
+  },
+  cashButton: {
+    backgroundColor: '#f44336',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  cashButtonText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
   },
   searchRow: {
     flexDirection: 'row',

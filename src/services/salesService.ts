@@ -1,13 +1,19 @@
 import { Product } from '../models/Product';
 import { Sale } from '../models/Sale';
 import { SaleItem } from '../models/SaleItem';
+import { PaymentMethod } from '../models/CashSession';
 import { getCurrentDateTime } from '../utils/formatters';
 import * as db from './database';
 
 /**
  * Procesa una venta completa
  */
-export const processSale = async (items: SaleItem[]): Promise<Sale> => {
+export const processSale = async (
+  items: SaleItem[], 
+  userId?: number,
+  paymentMethod: PaymentMethod = 'cash',
+  cashSessionId?: number
+): Promise<Sale> => {
   if (items.length === 0) {
     throw new Error('No hay productos en la venta');
   }
@@ -19,6 +25,9 @@ export const processSale = async (items: SaleItem[]): Promise<Sale> => {
   const sale: Sale = {
     total,
     date: getCurrentDateTime(),
+    user_id: userId,
+    payment_method: paymentMethod,
+    cash_session_id: cashSessionId,
   };
 
   // Guardar en la base de datos

@@ -94,6 +94,7 @@ const generateReceiptHTML = (sale: Sale, businessName: string = 'Mi Negocio'): s
       <div class="info">
         <p><strong>Fecha:</strong> ${formatDate(sale.date)}</p>
         <p><strong>Venta #:</strong> ${sale.id || 'Nueva'}</p>
+        ${sale.username ? `<p><strong>Vendedor:</strong> ${sale.username}</p>` : ''}
       </div>
       
       <table>
