@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
-  Modal,
   TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -22,14 +21,12 @@ import { formatCurrency } from '../utils/formatters';
 import { useAuth } from '../auth/AuthContext';
 import { CashOpenScreen } from './CashOpenScreen';
 import { CashCloseScreen } from './CashCloseScreen';
-import { HouseAccountModal } from './HouseAccountModal';
 
 export const SalesScreen: React.FC = () => {
   const { currentUser } = useAuth();
   const [cashSession, setCashSession] = useState<CashSession | null>(null);
   const [showCashOpenModal, setShowCashOpenModal] = useState(false);
   const [showCashCloseModal, setShowCashCloseModal] = useState(false);
-  const [showHouseModal, setShowHouseModal] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [products, setProducts] = useState<Product[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -218,62 +215,6 @@ export const SalesScreen: React.FC = () => {
     }
   };
 
-  const handleHouseAccount = () => {
-    if (cart.length === 0) {
-      Alert.alert('Carrito vacío', 'Agrega productos para realizar una salida');
-      return;
-    }
-
-    // No requiere sesión de caja abierta
-    setShowHouseModal(true);
-  };
-
-  const processHouseAccount = async (notes: string) => {
-    try {
-      setLoading(true);
-      setShowHouseModal(false);
-
-      // Validar stock
-      for (const item of cart) {
-        const hasStock = await salesService.validateStock(item.product_id, item.quantity);
-        if (!hasStock) {
-          Alert.alert('Stock insuficiente', `No hay suficiente stock de ${item.product_name}`);
-          return;
-        }
-      }
-
-      // Procesar como cuenta casa (sin sesión de caja, total 0)
-      await salesService.processSale(
-        cart, 
-        currentUser?.id, 
-        'cash', 
-        undefined, // No requiere cashSessionId
-        undefined, // No tiene tableOrderId
-        'house',   // Tipo de salida
-        notes      // Notas opcionales
-      );
-
-      Alert.alert(
-        '✅ Salida Registrada',
-        'La salida de cuenta casa se registró correctamente. Los productos se descontaron del inventario.',
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              setCart([]);
-              loadProducts();
-            },
-          },
-        ]
-      );
-    } catch (error) {
-      Alert.alert('Error', 'No se pudo procesar la salida');
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const total = calculateTotal();
 
   return (
@@ -403,27 +344,17 @@ export const SalesScreen: React.FC = () => {
             <Text style={styles.totalAmount}>{formatCurrency(total)}</Text>
           </View>
           
-          <View style={styles.buttonRow}>
-            <TouchableOpacity
-              style={styles.sellButton}
-              onPress={handleSell}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.sellButtonText}>💰 VENDER</Text>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.houseButton}
-              onPress={handleHouseAccount}
-              disabled={loading}
-            >
-              <Text style={styles.houseButtonText}>🏠 CUENTA CASA</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={styles.sellButton}
+            onPress={handleSell}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.sellButtonText}>💰 VENDER</Text>
+            )}
+          </TouchableOpacity>
         </View>
       )}
 
@@ -439,14 +370,6 @@ export const SalesScreen: React.FC = () => {
         session={cashSession}
         onClose={() => setShowCashCloseModal(false)}
         onSuccess={handleCashSessionSuccess}
-      />
-
-      {/* Modal de Cuenta Casa */}
-      <HouseAccountModal
-        visible={showHouseModal}
-        items={cart}
-        onConfirm={processHouseAccount}
-        onCancel={() => setShowHouseModal(false)}
       />
     </SafeAreaView>
   );
@@ -686,12 +609,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#4CAF50',
   },
-  buttonRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
   sellButton: {
-    flex: 1,
     backgroundColor: '#4CAF50',
     padding: 18,
     borderRadius: 8,
@@ -701,19 +619,6 @@ const styles = StyleSheet.create({
   sellButtonText: {
     color: '#fff',
     fontSize: 18,
-    fontWeight: 'bold',
-  },
-  houseButton: {
-    flex: 1,
-    backgroundColor: '#FF9800',
-    padding: 18,
-    borderRadius: 8,
-    alignItems: 'center',
-    elevation: 4,
-  },
-  houseButtonText: {
-    color: '#fff',
-    fontSize: 16,
     fontWeight: 'bold',
   },
 });
