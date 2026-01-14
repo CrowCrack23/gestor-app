@@ -96,7 +96,11 @@ export const HistoryScreen: React.FC = () => {
   const getTodayTotal = (): number => {
     const today = new Date().toISOString().split('T')[0];
     return sales
-      .filter(sale => sale.date.startsWith(today) && !sale.voided_at)
+      .filter(sale => 
+        sale.date.startsWith(today) && 
+        !sale.voided_at && 
+        sale.sale_type !== 'house' // Excluir cuenta casa de totales
+      )
       .reduce((sum, sale) => sum + sale.total, 0);
   };
 
@@ -134,45 +138,70 @@ export const HistoryScreen: React.FC = () => {
     }
   };
 
-  const renderSale = ({ item }: { item: Sale }) => (
-    <View style={[styles.saleCard, item.voided_at && styles.voidedCard]}>
-      <View style={styles.saleHeader}>
-        <View>
-          <Text style={styles.saleId}>Venta #{item.id}</Text>
-          <Text style={styles.saleDate}>{formatDate(item.date)}</Text>
-          {item.voided_at && (
-            <Text style={styles.voidedBadge}>❌ ANULADA</Text>
+  const renderSale = ({ item }: { item: Sale }) => {
+    const isHouse = item.sale_type === 'house';
+    
+    return (
+      <View style={[
+        styles.saleCard, 
+        item.voided_at && styles.voidedCard,
+        isHouse && styles.houseCard
+      ]}>
+        <View style={styles.saleHeader}>
+          <View style={styles.saleHeaderLeft}>
+            <View style={styles.saleHeaderRow}>
+              {isHouse && <Text style={styles.houseIcon}>🏠</Text>}
+              <Text style={styles.saleId}>
+                {isHouse ? 'Cuenta Casa' : 'Venta'} #{item.id}
+              </Text>
+            </View>
+            <Text style={styles.saleDate}>{formatDate(item.date)}</Text>
+            {isHouse && (
+              <Text style={styles.houseBadge}>CUENTA CASA</Text>
+            )}
+            {item.voided_at && (
+              <Text style={styles.voidedBadge}>❌ ANULADA</Text>
+            )}
+            {isHouse && item.notes && (
+              <Text style={styles.houseNotes} numberOfLines={2}>
+                📝 {item.notes}
+              </Text>
+            )}
+          </View>
+          <Text style={[
+            styles.saleTotal, 
+            item.voided_at && styles.voidedTotal,
+            isHouse && styles.houseTotal
+          ]}>
+            {formatCurrency(item.total)}
+          </Text>
+        </View>
+
+        <View style={styles.saleActions}>
+          <TouchableOpacity
+            style={styles.viewButton}
+            onPress={() => handleViewSale(item)}
+          >
+            <Text style={styles.viewButtonText}>👁 Ver</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.printButton}
+            onPress={() => handlePrintSale(item)}
+          >
+            <Text style={styles.printButtonText}>📄 PDF</Text>
+          </TouchableOpacity>
+          {!item.voided_at && currentUser?.role === 'admin' && (
+            <TouchableOpacity
+              style={styles.voidButton}
+              onPress={() => handleVoidSale(item)}
+            >
+              <Text style={styles.voidButtonText}>❌</Text>
+            </TouchableOpacity>
           )}
         </View>
-        <Text style={[styles.saleTotal, item.voided_at && styles.voidedTotal]}>
-          {formatCurrency(item.total)}
-        </Text>
       </View>
-
-      <View style={styles.saleActions}>
-        <TouchableOpacity
-          style={styles.viewButton}
-          onPress={() => handleViewSale(item)}
-        >
-          <Text style={styles.viewButtonText}>👁 Ver</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.printButton}
-          onPress={() => handlePrintSale(item)}
-        >
-          <Text style={styles.printButtonText}>📄 PDF</Text>
-        </TouchableOpacity>
-        {!item.voided_at && currentUser?.role === 'admin' && (
-          <TouchableOpacity
-            style={styles.voidButton}
-            onPress={() => handleVoidSale(item)}
-          >
-            <Text style={styles.voidButtonText}>❌</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-    </View>
-  );
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -356,11 +385,27 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
     opacity: 0.7,
   },
+  houseCard: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#FF9800',
+    backgroundColor: '#FFF8E1',
+  },
   saleHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 8,
+  },
+  saleHeaderLeft: {
+    flex: 1,
+  },
+  saleHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  houseIcon: {
+    fontSize: 18,
   },
   saleId: {
     fontSize: 16,
@@ -385,6 +430,28 @@ const styles = StyleSheet.create({
     color: '#f44336',
     fontWeight: 'bold',
     marginTop: 4,
+  },
+  houseBadge: {
+    fontSize: 12,
+    color: '#FF9800',
+    fontWeight: 'bold',
+    marginTop: 4,
+    backgroundColor: '#FFE0B2',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+    alignSelf: 'flex-start',
+  },
+  houseNotes: {
+    fontSize: 12,
+    color: '#666',
+    fontStyle: 'italic',
+    marginTop: 6,
+    lineHeight: 16,
+  },
+  houseTotal: {
+    color: '#FF9800',
+    fontWeight: 'bold',
   },
   saleActions: {
     flexDirection: 'row',

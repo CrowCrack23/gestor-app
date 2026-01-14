@@ -9,7 +9,7 @@ import { TableOrderItem } from '../models/TableOrderItem';
 
 let db: SQLite.SQLiteDatabase;
 
-const CURRENT_DB_VERSION = 5;
+const CURRENT_DB_VERSION = 6;
 
 /**
  * Inicializa la base de datos y crea las tablas si no existen
@@ -229,6 +229,21 @@ export const initDatabase = async (): Promise<void> => {
       console.log('Migración v5 completada');
     }
 
+    // Migración v6: Soporte para salidas de cuenta casa
+    if (currentVersion < 6) {
+      console.log('Aplicando migración v6: Cuenta casa...');
+      
+      await db.execAsync(`
+        ALTER TABLE sales ADD COLUMN sale_type TEXT DEFAULT 'normal';
+      `);
+      
+      await db.execAsync(`
+        ALTER TABLE sales ADD COLUMN notes TEXT;
+      `);
+      
+      console.log('Migración v6 completada');
+    }
+
     // Actualizar versión de la BD
     if (currentVersion < CURRENT_DB_VERSION) {
       await db.execAsync(`PRAGMA user_version = ${CURRENT_DB_VERSION}`);
@@ -373,8 +388,17 @@ export const createSale = async (sale: Sale, items: SaleItem[]): Promise<number>
     await db.withTransactionAsync(async () => {
       // Insertar venta
       const saleResult = await db.runAsync(
-        'INSERT INTO sales (total, date, user_id, cash_session_id, payment_method) VALUES (?, ?, ?, ?, ?)',
-        [sale.total, sale.date, sale.user_id || null, sale.cash_session_id || null, sale.payment_method || 'cash']
+        'INSERT INTO sales (total, date, user_id, cash_session_id, payment_method, sale_type, notes, table_order_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [
+          sale.total, 
+          sale.date, 
+          sale.user_id || null, 
+          sale.cash_session_id || null, 
+          sale.payment_method || 'cash',
+          sale.sale_type || 'normal',
+          sale.notes || null,
+          sale.table_order_id || null
+        ]
       );
       
       saleId = saleResult.lastInsertRowId;
@@ -484,28 +508,28 @@ export const getReportByPeriod = async (startDate: string, endDate: string): Pro
     const totalResult = await db.getFirstAsync<{ total: number; count: number }>(
       `SELECT COALESCE(SUM(total), 0) as total, COUNT(*) as count 
        FROM sales 
-       WHERE date BETWEEN ? AND ? AND voided_at IS NULL`,
+       WHERE date BETWEEN ? AND ? AND voided_at IS NULL AND (sale_type IS NULL OR sale_type = 'normal')`,
       [startDate, endDate]
     );
 
     const cashResult = await db.getFirstAsync<{ total: number }>(
       `SELECT COALESCE(SUM(total), 0) as total 
        FROM sales 
-       WHERE date BETWEEN ? AND ? AND payment_method = 'cash' AND voided_at IS NULL`,
+       WHERE date BETWEEN ? AND ? AND payment_method = 'cash' AND voided_at IS NULL AND (sale_type IS NULL OR sale_type = 'normal')`,
       [startDate, endDate]
     );
 
     const cardResult = await db.getFirstAsync<{ total: number }>(
       `SELECT COALESCE(SUM(total), 0) as total 
        FROM sales 
-       WHERE date BETWEEN ? AND ? AND payment_method = 'card' AND voided_at IS NULL`,
+       WHERE date BETWEEN ? AND ? AND payment_method = 'card' AND voided_at IS NULL AND (sale_type IS NULL OR sale_type = 'normal')`,
       [startDate, endDate]
     );
 
     const transferResult = await db.getFirstAsync<{ total: number }>(
       `SELECT COALESCE(SUM(total), 0) as total 
        FROM sales 
-       WHERE date BETWEEN ? AND ? AND payment_method = 'transfer' AND voided_at IS NULL`,
+       WHERE date BETWEEN ? AND ? AND payment_method = 'transfer' AND voided_at IS NULL AND (sale_type IS NULL OR sale_type = 'normal')`,
       [startDate, endDate]
     );
 
@@ -537,7 +561,7 @@ export const getReportByVendor = async (startDate: string, endDate: string): Pro
               COUNT(s.id) as count
        FROM sales s
        LEFT JOIN users u ON s.user_id = u.id
-       WHERE s.date BETWEEN ? AND ? AND s.voided_at IS NULL
+       WHERE s.date BETWEEN ? AND ? AND s.voided_at IS NULL AND (s.sale_type IS NULL OR s.sale_type = 'normal')
        GROUP BY s.user_id
        ORDER BY total DESC`,
       [startDate, endDate]
@@ -565,7 +589,7 @@ export const getTopProducts = async (startDate: string, endDate: string, limit: 
        FROM sale_items si
        JOIN products p ON si.product_id = p.id
        JOIN sales s ON si.sale_id = s.id
-       WHERE s.date BETWEEN ? AND ? AND s.voided_at IS NULL
+       WHERE s.date BETWEEN ? AND ? AND s.voided_at IS NULL AND (s.sale_type IS NULL OR s.sale_type = 'normal')
        GROUP BY si.product_id
        ORDER BY quantity DESC
        LIMIT ?`,
@@ -592,7 +616,7 @@ export const getSalesByHour = async (startDate: string, endDate: string): Promis
               COUNT(*) as count,
               SUM(total) as total
        FROM sales
-       WHERE date BETWEEN ? AND ? AND voided_at IS NULL
+       WHERE date BETWEEN ? AND ? AND voided_at IS NULL AND (sale_type IS NULL OR sale_type = 'normal')
        GROUP BY hour
        ORDER BY count DESC`,
       [startDate, endDate]
@@ -881,11 +905,11 @@ export const listCashSessions = async (limit: number = 50): Promise<CashSession[
 export const getAllTableOrders = async (): Promise<TableOrder[]> => {
   try {
     const result = await db.getAllAsync<TableOrder>(
-      `SELECT to.*, u.username as opened_by_username
-       FROM table_orders to
-       LEFT JOIN users u ON to.opened_by_user_id = u.id
-       WHERE to.status = 'open'
-       ORDER BY to.table_number ASC`
+      `SELECT tor.*, u.username as opened_by_username
+       FROM table_orders tor
+       LEFT JOIN users u ON tor.opened_by_user_id = u.id
+       WHERE tor.status = 'open'
+       ORDER BY tor.table_number ASC`
     );
     return result;
   } catch (error) {
@@ -900,10 +924,10 @@ export const getAllTableOrders = async (): Promise<TableOrder[]> => {
 export const getTableOrderById = async (id: number): Promise<TableOrder | null> => {
   try {
     const tableOrder = await db.getFirstAsync<TableOrder>(
-      `SELECT to.*, u.username as opened_by_username
-       FROM table_orders to
-       LEFT JOIN users u ON to.opened_by_user_id = u.id
-       WHERE to.id = ?`,
+      `SELECT tor.*, u.username as opened_by_username
+       FROM table_orders tor
+       LEFT JOIN users u ON tor.opened_by_user_id = u.id
+       WHERE tor.id = ?`,
       [id]
     );
     
@@ -935,10 +959,10 @@ export const getTableOrderById = async (id: number): Promise<TableOrder | null> 
 export const getTableOrderByTableNumber = async (tableNumber: number): Promise<TableOrder | null> => {
   try {
     const tableOrder = await db.getFirstAsync<TableOrder>(
-      `SELECT to.*, u.username as opened_by_username
-       FROM table_orders to
-       LEFT JOIN users u ON to.opened_by_user_id = u.id
-       WHERE to.table_number = ? AND to.status = 'open'`,
+      `SELECT tor.*, u.username as opened_by_username
+       FROM table_orders tor
+       LEFT JOIN users u ON tor.opened_by_user_id = u.id
+       WHERE tor.table_number = ? AND tor.status = 'open'`,
       [tableNumber]
     );
     
