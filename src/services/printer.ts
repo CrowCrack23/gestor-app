@@ -1,193 +1,169 @@
-/**
- * SERVICIO DE IMPRESIÓN - VERSIÓN MOCK
- * 
- * Este archivo contiene la estructura para integrar una impresora MRBOSS.
- * Por ahora funciona en modo simulación (mock).
- * 
- * PARA HABILITAR LA IMPRESIÓN REAL:
- * 
- * 1. Instala una librería de impresión Bluetooth según tu impresora:
- *    npm install @brooons/react-native-bluetooth-escpos-printer
- *    O busca la que sea compatible con tu modelo MRBOSS
- * 
- * 2. Descomenta el import y reemplaza las funciones mock con las reales
- * 
- * 3. Ejemplos de librerías disponibles:
- *    - @brooons/react-native-bluetooth-escpos-printer
- *    - @pipechela/react-native-bluetooth-escpos-printer
- *    - react-native-thermal-printer (para USB)
- */
-
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 import { Sale } from '../models/Sale';
 import { formatCurrency, formatDate } from '../utils/formatters';
 
-// DESCOMENTAR cuando instales la librería de impresión:
-// import {
-//   BluetoothManager,
-//   BluetoothEscposPrinter,
-// } from '@brooons/react-native-bluetooth-escpos-printer';
-
-// Estado de conexión simulado
-let mockConnected = false;
-let mockDevice: any = null;
-
 /**
- * Escanea dispositivos Bluetooth disponibles
+ * Genera el HTML del comprobante
  */
-export const scanDevices = async (): Promise<any[]> => {
-  try {
-    // MOCK: Retorna dispositivos simulados
-    console.log('🔍 Escaneando dispositivos Bluetooth (MODO SIMULACIÓN)...');
-    
-    // Simular delay de escaneo
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Dispositivos simulados para prueba
-    const mockDevices = [
-      { name: 'MRBOSS Printer (SIMULADO)', address: '00:00:00:00:00:01' },
-      { name: 'Thermal Printer (SIMULADO)', address: '00:00:00:00:00:02' },
-    ];
-    
-    console.log('✅ Dispositivos encontrados:', mockDevices.length);
-    return mockDevices;
-    
-    // PARA USAR IMPRESIÓN REAL, reemplaza por:
-    // const devices = await BluetoothManager.scanDevices();
-    // return JSON.parse(devices);
-  } catch (error) {
-    console.error('Error al escanear dispositivos:', error);
-    throw error;
-  }
+const generateReceiptHTML = (sale: Sale, businessName: string = 'Mi Negocio'): string => {
+  const itemsHTML = sale.items?.map(item => `
+    <tr>
+      <td style="padding: 8px; border-bottom: 1px solid #ddd;">${item.product_name}</td>
+      <td style="padding: 8px; text-align: center; border-bottom: 1px solid #ddd;">${item.quantity}</td>
+      <td style="padding: 8px; text-align: right; border-bottom: 1px solid #ddd;">${formatCurrency(item.price)}</td>
+      <td style="padding: 8px; text-align: right; border-bottom: 1px solid #ddd; font-weight: bold;">${formatCurrency(item.subtotal)}</td>
+    </tr>
+  `).join('') || '';
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <style>
+        @page {
+          margin: 20px;
+        }
+        body {
+          font-family: 'Courier New', monospace;
+          margin: 0;
+          padding: 20px;
+          font-size: 12px;
+        }
+        .header {
+          text-align: center;
+          margin-bottom: 20px;
+          border-bottom: 2px solid #000;
+          padding-bottom: 10px;
+        }
+        .header h1 {
+          margin: 0;
+          font-size: 20px;
+          font-weight: bold;
+        }
+        .info {
+          margin: 15px 0;
+          border-bottom: 1px dashed #000;
+          padding-bottom: 10px;
+        }
+        .info p {
+          margin: 5px 0;
+        }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          margin: 15px 0;
+        }
+        th {
+          background-color: #f0f0f0;
+          padding: 10px 8px;
+          text-align: left;
+          border-bottom: 2px solid #000;
+          font-weight: bold;
+        }
+        .total-section {
+          text-align: right;
+          margin: 20px 0;
+          padding-top: 10px;
+          border-top: 2px solid #000;
+        }
+        .total {
+          font-size: 18px;
+          font-weight: bold;
+          margin: 10px 0;
+        }
+        .footer {
+          text-align: center;
+          margin-top: 30px;
+          border-top: 2px solid #000;
+          padding-top: 15px;
+        }
+        .footer p {
+          margin: 5px 0;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>${businessName}</h1>
+        <p>COMPROBANTE DE VENTA</p>
+      </div>
+      
+      <div class="info">
+        <p><strong>Fecha:</strong> ${formatDate(sale.date)}</p>
+        <p><strong>Venta #:</strong> ${sale.id || 'Nueva'}</p>
+      </div>
+      
+      <table>
+        <thead>
+          <tr>
+            <th>Producto</th>
+            <th style="text-align: center;">Cant.</th>
+            <th style="text-align: right;">Precio</th>
+            <th style="text-align: right;">Subtotal</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${itemsHTML}
+        </tbody>
+      </table>
+      
+      <div class="total-section">
+        <p class="total">TOTAL: ${formatCurrency(sale.total)}</p>
+      </div>
+      
+      <div class="footer">
+        <p>¡Gracias por su compra!</p>
+        <p>Generado con App Gestor Ventas</p>
+      </div>
+    </body>
+    </html>
+  `;
 };
 
 /**
- * Conecta a una impresora Bluetooth
- */
-export const connectPrinter = async (address: string): Promise<void> => {
-  try {
-    console.log('🔗 Conectando a impresora (MODO SIMULACIÓN)...', address);
-    
-    // Simular delay de conexión
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    mockConnected = true;
-    mockDevice = { address };
-    
-    console.log('✅ Conectado a la impresora (SIMULACIÓN)');
-    
-    // PARA USAR IMPRESIÓN REAL, reemplaza por:
-    // await BluetoothManager.connect(address);
-  } catch (error) {
-    console.error('Error al conectar con la impresora:', error);
-    throw error;
-  }
-};
-
-/**
- * Desconecta la impresora
- */
-export const disconnectPrinter = async (): Promise<void> => {
-  try {
-    console.log('🔌 Desconectando impresora (MODO SIMULACIÓN)...');
-    
-    mockConnected = false;
-    mockDevice = null;
-    
-    console.log('✅ Desconectado (SIMULACIÓN)');
-    
-    // PARA USAR IMPRESIÓN REAL, reemplaza por:
-    // await BluetoothManager.disconnect();
-  } catch (error) {
-    console.error('Error al desconectar:', error);
-    throw error;
-  }
-};
-
-/**
- * Verifica si hay una impresora conectada
- */
-export const isConnected = async (): Promise<boolean> => {
-  // MOCK: Retorna estado simulado
-  return mockConnected;
-  
-  // PARA USAR IMPRESIÓN REAL, reemplaza por:
-  // return await BluetoothManager.isConnected();
-};
-
-/**
- * Genera el texto del comprobante
- */
-const generateReceiptText = (sale: Sale, businessName: string = 'Mi Negocio'): string => {
-  let receipt = '';
-
-  // Encabezado
-  receipt += '================================\n';
-  receipt += `${businessName.padStart((32 + businessName.length) / 2).padEnd(32)}\n`;
-  receipt += '================================\n';
-  receipt += '\n';
-
-  // Información de la venta
-  receipt += `Fecha: ${formatDate(sale.date)}\n`;
-  receipt += `Venta #: ${sale.id || 'Nueva'}\n`;
-  receipt += '--------------------------------\n';
-  receipt += '\n';
-
-  // Items
-  receipt += 'PRODUCTO              CANT  PRECIO\n';
-  receipt += '--------------------------------\n';
-  
-  if (sale.items && sale.items.length > 0) {
-    for (const item of sale.items) {
-      const productName = item.product_name || 'Producto';
-      const truncatedName =
-        productName.length > 20
-          ? productName.substring(0, 17) + '...'
-          : productName.padEnd(20, ' ');
-      const quantity = item.quantity.toString().padStart(4, ' ');
-      const subtotal = formatCurrency(item.subtotal).padStart(8, ' ');
-
-      receipt += `${truncatedName} ${quantity} ${subtotal}\n`;
-    }
-  }
-
-  receipt += '\n';
-  receipt += '--------------------------------\n';
-  receipt += `${'TOTAL: ' + formatCurrency(sale.total)}`.padStart(32) + '\n';
-  receipt += '\n';
-
-  // Pie de página
-  receipt += '================================\n';
-  receipt += 'Gracias por su compra\n';
-  receipt += '================================\n';
-  receipt += '\n\n\n';
-
-  return receipt;
-};
-
-/**
- * Imprime el comprobante completo de una venta
+ * Genera un PDF del comprobante y lo comparte
  */
 export const printReceipt = async (sale: Sale, businessName?: string): Promise<void> => {
   try {
-    const connected = await isConnected();
+    const html = generateReceiptHTML(sale, businessName);
     
-    if (!connected) {
-      throw new Error('No hay impresora conectada');
+    const { uri } = await Print.printToFileAsync({ html });
+    
+    console.log('PDF generado:', uri);
+    
+    // Compartir el PDF (el usuario puede imprimir desde aquí)
+    const isAvailable = await Sharing.isAvailableAsync();
+    
+    if (isAvailable) {
+      await Sharing.shareAsync(uri, {
+        mimeType: 'application/pdf',
+        dialogTitle: 'Compartir Comprobante',
+        UTI: 'com.adobe.pdf',
+      });
+    } else {
+      console.log('Sharing no disponible en este dispositivo');
+      // En este caso, el PDF se guarda en el dispositivo
+      alert('PDF guardado. Busca el archivo en tus descargas.');
     }
-
-    const receiptText = generateReceiptText(sale, businessName);
-    
-    // MOCK: Muestra en consola
-    console.log('🖨️ IMPRIMIENDO COMPROBANTE (MODO SIMULACIÓN):');
-    console.log(receiptText);
-    console.log('✅ Comprobante "impreso" (ver consola)');
-    
-    // PARA USAR IMPRESIÓN REAL, reemplaza por:
-    // await BluetoothEscposPrinter.printerAlign(BluetoothEscposPrinter.ALIGN.CENTER);
-    // await BluetoothEscposPrinter.printText(receiptText, {});
-    
   } catch (error) {
-    console.error('Error al imprimir comprobante:', error);
+    console.error('Error al generar PDF:', error);
+    throw error;
+  }
+};
+
+/**
+ * Vista previa del comprobante (abre el diálogo de impresión del sistema)
+ */
+export const printReceiptDirect = async (sale: Sale, businessName?: string): Promise<void> => {
+  try {
+    const html = generateReceiptHTML(sale, businessName);
+    
+    await Print.printAsync({ html });
+  } catch (error) {
+    console.error('Error al imprimir:', error);
     throw error;
   }
 };
@@ -197,29 +173,59 @@ export const printReceipt = async (sale: Sale, businessName?: string): Promise<v
  */
 export const printTest = async (): Promise<void> => {
   try {
-    const connected = await isConnected();
+    const testHTML = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body {
+            font-family: 'Courier New', monospace;
+            padding: 20px;
+            text-align: center;
+          }
+          h1 {
+            border: 2px solid #000;
+            padding: 20px;
+          }
+        </style>
+      </head>
+      <body>
+        <h1>PRUEBA DE IMPRESIÓN</h1>
+        <p>Si puedes ver esto, la impresión funciona correctamente.</p>
+        <p>Fecha: ${new Date().toLocaleString('es-ES')}</p>
+      </body>
+      </html>
+    `;
     
-    if (!connected) {
-      throw new Error('No hay impresora conectada');
-    }
-
-    const testText = 
-      '================================\n' +
-      'PRUEBA DE IMPRESION\n' +
-      '================================\n' +
-      '\n\n\n';
-
-    // MOCK: Muestra en consola
-    console.log('🖨️ PRUEBA DE IMPRESIÓN (MODO SIMULACIÓN):');
-    console.log(testText);
-    console.log('✅ Prueba "impresa" (ver consola)');
+    await Print.printAsync({ html: testHTML });
     
-    // PARA USAR IMPRESIÓN REAL, reemplaza por:
-    // await BluetoothEscposPrinter.printerAlign(BluetoothEscposPrinter.ALIGN.CENTER);
-    // await BluetoothEscposPrinter.printText(testText, {});
-
+    console.log('Prueba de impresión exitosa');
   } catch (error) {
     console.error('Error en prueba de impresión:', error);
     throw error;
   }
 };
+
+// Funciones mock para compatibilidad con la interfaz anterior
+export const scanDevices = async (): Promise<any[]> => {
+  // En Expo con Print, no necesitamos escanear dispositivos
+  // El sistema operativo maneja las impresoras disponibles
+  return [];
+};
+
+export const connectPrinter = async (address: string): Promise<void> => {
+  // No necesario con expo-print
+  console.log('expo-print maneja la conexión automáticamente');
+};
+
+export const disconnectPrinter = async (): Promise<void> => {
+  // No necesario con expo-print
+  console.log('No hay conexión que desconectar con expo-print');
+};
+
+export const isConnected = async (): Promise<boolean> => {
+  // Con expo-print siempre está "conectado" porque usa el sistema del OS
+  return true;
+};
+

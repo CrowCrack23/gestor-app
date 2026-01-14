@@ -1,36 +1,41 @@
-# OSX
-.DS_Store
+# Expo
+.expo/
+.expo-shared/
+dist/
+web-build/
 
 # Node
 node_modules/
 npm-debug.log
 yarn-error.log
+yarn.lock
+package-lock.json
 
-# React Native
-.expo/
-.expo-shared/
+# OS
+.DS_Store
+*.swp
+*.swo
+*~
 
-# Android
-/android/app/build
-/android/app/debug
-/android/app/release
-/android/.gradle
-local.properties
-*.iml
-*.hprof
-.cxx/
-*.apk
-
-# iOS
-ios/Pods/
-ios/build/
-DerivedData/
-*.xcworkspace
-*.xcuserstate
-
-# Misc
-.env
-.env.local
+# IDE
 .vscode/
 .idea/
+*.sublime-project
+*.sublime-workspace
 
+# TypeScript
+*.tsbuildinfo
+
+# Temporary files
+*.log
+*.tmp
+.env
+.env.local
+
+# Build
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*

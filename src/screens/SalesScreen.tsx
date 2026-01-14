@@ -126,7 +126,7 @@ export const SalesScreen: React.FC = () => {
       // Preguntar si desea imprimir
       Alert.alert(
         'Venta realizada',
-        '¿Deseas imprimir el comprobante?',
+        '¿Deseas generar el comprobante en PDF?',
         [
           {
             text: 'No',
@@ -140,11 +140,10 @@ export const SalesScreen: React.FC = () => {
             onPress: async () => {
               try {
                 await printer.printReceipt(sale);
-                Alert.alert('Éxito', 'Comprobante impreso correctamente');
               } catch (error) {
                 Alert.alert(
                   'Error de impresión',
-                  'No se pudo imprimir el comprobante. Verifica la conexión con la impresora.'
+                  'No se pudo generar el PDF'
                 );
                 console.error(error);
               } finally {

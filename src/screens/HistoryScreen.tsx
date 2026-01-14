@@ -14,7 +14,7 @@ import { Sale } from '../models/Sale';
 import { ReceiptPreview } from '../components/ReceiptPreview';
 import * as db from '../services/database';
 import * as printer from '../services/printer';
-import { formatCurrency, formatDate, formatShortDate } from '../utils/formatters';
+import { formatCurrency, formatDate } from '../utils/formatters';
 
 export const HistoryScreen: React.FC = () => {
   const [sales, setSales] = useState<Sale[]>([]);
@@ -59,24 +59,23 @@ export const HistoryScreen: React.FC = () => {
 
   const handlePrintSale = async (sale: Sale) => {
     Alert.alert(
-      'Imprimir Comprobante',
-      `¿Deseas reimprimir el comprobante de la venta #${sale.id}?`,
+      'Generar PDF',
+      `¿Deseas generar el PDF del comprobante de la venta #${sale.id}?`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
-          text: 'Imprimir',
+          text: 'Generar PDF',
           onPress: async () => {
             try {
               setLoading(true);
               const saleWithItems = await db.getSaleById(sale.id!);
               if (saleWithItems) {
                 await printer.printReceipt(saleWithItems);
-                Alert.alert('Éxito', 'Comprobante impreso correctamente');
               }
             } catch (error) {
               Alert.alert(
-                'Error de impresión',
-                'No se pudo imprimir el comprobante. Verifica la conexión con la impresora.'
+                'Error',
+                'No se pudo generar el PDF'
               );
               console.error(error);
             } finally {
@@ -115,7 +114,7 @@ export const HistoryScreen: React.FC = () => {
           style={styles.printButton}
           onPress={() => handlePrintSale(item)}
         >
-          <Text style={styles.printButtonText}>🖨 Reimprimir</Text>
+          <Text style={styles.printButtonText}>📄 PDF</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -170,18 +169,17 @@ export const HistoryScreen: React.FC = () => {
                 if (selectedSale) {
                   try {
                     await printer.printReceipt(selectedSale);
-                    Alert.alert('Éxito', 'Comprobante impreso correctamente');
                   } catch (error) {
                     Alert.alert(
                       'Error',
-                      'No se pudo imprimir el comprobante'
+                      'No se pudo generar el PDF'
                     );
                     console.error(error);
                   }
                 }
               }}
             >
-              <Text style={styles.modalPrintButtonText}>Imprimir</Text>
+              <Text style={styles.modalPrintButtonText}>Generar PDF</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.modalCloseButton}

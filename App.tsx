@@ -9,15 +9,15 @@ import {
 } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { SalesScreen } from './screens/SalesScreen';
-import { ProductsScreen } from './screens/ProductsScreen';
-import { HistoryScreen } from './screens/HistoryScreen';
-import { SettingsScreen } from './screens/SettingsScreen';
-import * as db from './services/database';
+import { SalesScreen } from './src/screens/SalesScreen';
+import { ProductsScreen } from './src/screens/ProductsScreen';
+import { HistoryScreen } from './src/screens/HistoryScreen';
+import { SettingsScreen } from './src/screens/SettingsScreen';
+import * as db from './src/services/database';
 
 const Tab = createBottomTabNavigator();
 
-const App: React.FC = () => {
+export default function App() {
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
@@ -50,7 +50,7 @@ const App: React.FC = () => {
 
   return (
     <>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      <StatusBar barStyle="dark-content" backgroundColor="#2196F3" />
       <NavigationContainer>
         <Tab.Navigator
           screenOptions={{
@@ -115,7 +115,7 @@ const App: React.FC = () => {
       </NavigationContainer>
     </>
   );
-};
+}
 
 const styles = StyleSheet.create({
   loadingContainer: {
@@ -130,6 +130,3 @@ const styles = StyleSheet.create({
     color: '#666',
   },
 });
-
-export default App;
-

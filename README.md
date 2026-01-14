@@ -1,246 +1,277 @@
-# App Gestor de Ventas
+# 🎉 App Gestor de Ventas - Expo
 
-Aplicación móvil React Native para gestión de ventas de productos con integración de impresora térmica MRBOSS.
+Aplicación móvil desarrollada con **Expo** y **React Native** para gestión de ventas de productos con generación de comprobantes en PDF.
 
-## Características
+## ✨ Características
 
-- ✅ **Gestión de Productos**: Crear, editar y eliminar productos con control de inventario
-- ✅ **Registro de Ventas**: Interfaz intuitiva de punto de venta con carrito de compras
-- ✅ **Historial de Ventas**: Consulta ventas pasadas con filtros por fecha
-- 🖨️ **Impresión de Comprobantes**: Preparado para impresora MRBOSS (modo simulación por defecto)
-- ✅ **Base de Datos Local**: Almacenamiento offline con SQLite
-- ✅ **Interfaz Moderna**: Diseño responsivo y fácil de usar
+- 💰 **Gestión de Ventas**: Sistema POS completo con carrito de compras
+- 📦 **Gestión de Productos**: CRUD completo de productos con control de stock
+- 📊 **Historial de Ventas**: Consulta y visualización de ventas realizadas
+- 📄 **Comprobantes en PDF**: Generación y compartición de comprobantes
+- 💾 **Base de Datos Local**: SQLite para almacenamiento offline
+- 🎨 **Interfaz Moderna**: Diseño intuitivo y responsivo
 
-> **Nota:** La aplicación funciona completamente sin impresora. La impresión está en modo simulación (muestra en consola). Para activar impresión real, ver [`CONFIGURAR_IMPRESORA.md`](CONFIGURAR_IMPRESORA.md)
+## 🚀 Inicio Rápido
 
-## Tecnologías Utilizadas
+### Requisitos Previos
 
-- **React Native 0.73**: Framework principal
-- **TypeScript**: Tipado estático
-- **React Navigation**: Navegación entre pantallas
-- **SQLite**: Base de datos local
-- **react-native-bluetooth-escpos-printer**: Impresión térmica
+- Node.js (v18 o superior)
+- npm o yarn
+- Dispositivo Android con la app **Expo Go** instalada
 
-## Requisitos Previos
+### Instalación
 
-- Node.js >= 18
-- Java JDK 11 o superior
-- Android SDK
-- Android Studio (recomendado)
-
-## Instalación
-
-1. **Clonar el repositorio (si aplica) o navegar al directorio del proyecto**
+1. **Clona o descarga el proyecto**
 
 ```bash
 cd app-gestor
 ```
 
-2. **Instalar dependencias**
+2. **Instala las dependencias** (si no están instaladas)
 
 ```bash
 npm install
 ```
 
-3. **Instalar dependencias de Android**
+3. **Inicia el servidor de desarrollo**
 
 ```bash
-cd android
-./gradlew clean
-cd ..
+npx expo start
 ```
 
-## Configuración de la Impresora MRBOSS
+4. **Escanea el código QR**
+   - Abre la app **Expo Go** en tu dispositivo Android
+   - Escanea el código QR que aparece en la terminal
+   - ¡La app se abrirá automáticamente!
 
-### Permisos Requeridos
+## 📱 Uso de la Aplicación
 
-La aplicación requiere los siguientes permisos en Android (ya configurados en AndroidManifest.xml):
+### 1. Primera Vez
 
-- `BLUETOOTH`
-- `BLUETOOTH_ADMIN`
-- `BLUETOOTH_CONNECT`
-- `BLUETOOTH_SCAN`
-- `ACCESS_FINE_LOCATION`
-- `ACCESS_COARSE_LOCATION`
+Al abrir la app por primera vez:
+- La base de datos SQLite se creará automáticamente
+- Ve a la pestaña **"Productos"** para agregar tu catálogo
 
-### Configurar la Conexión
+### 2. Agregar Productos
 
-1. **Emparejar la impresora**: Antes de usar la aplicación, empareja tu impresora MRBOSS con tu dispositivo Android desde Configuración > Bluetooth
+- Toca el botón **"+ Agregar Producto"**
+- Completa: nombre, precio y stock inicial
+- Guarda el producto
 
-2. **Escanear dispositivos en la app**: La aplicación escaneará automáticamente los dispositivos Bluetooth disponibles
+### 3. Realizar una Venta
 
-3. **Seleccionar impresora**: Conecta con tu impresora MRBOSS desde la aplicación
+- Ve a la pestaña **"Ventas"**
+- Toca los productos para agregarlos al carrito
+- Ajusta las cantidades con los botones +/-
+- Toca **"Finalizar Venta"**
+- Elige si deseas generar el comprobante en PDF
 
-### Compatibilidad
+### 4. Comprobantes en PDF
 
-La impresora MRBOSS debe ser compatible con comandos **ESC/POS**. Si tu modelo específico tiene comandos diferentes, puedes modificar el archivo `src/services/printer.ts`.
+Cuando finalizas una venta:
+- Se genera un PDF del comprobante
+- Puedes compartirlo por WhatsApp, email, etc.
+- El PDF se guarda automáticamente en tu dispositivo
+- Puedes imprimirlo desde cualquier impresora compatible
 
-## Ejecutar la Aplicación
+### 5. Historial de Ventas
 
-### Modo Desarrollo
+- Ve a la pestaña **"Historial"**
+- Visualiza todas tus ventas realizadas
+- Consulta el total de ventas del día
+- Genera de nuevo el PDF de cualquier venta
 
-1. **Iniciar Metro Bundler**
+## 🛠️ Tecnologías Utilizadas
 
-```bash
-npm start
-```
+- **Expo SDK 54**: Framework de desarrollo
+- **React Native**: Framework móvil
+- **TypeScript**: Tipado estático
+- **expo-sqlite**: Base de datos local
+- **expo-print**: Generación de PDFs
+- **expo-sharing**: Compartir archivos
+- **React Navigation**: Navegación por tabs
 
-2. **En otra terminal, ejecutar en Android**
-
-```bash
-npm run android
-```
-
-O directamente:
-
-```bash
-npx react-native run-android
-```
-
-### Generar APK de Producción
-
-```bash
-cd android
-./gradlew assembleRelease
-```
-
-El APK se generará en: `android/app/build/outputs/apk/release/app-release.apk`
-
-## Estructura del Proyecto
+## 📁 Estructura del Proyecto
 
 ```
 app-gestor/
+├── App.tsx                      # Componente principal con navegación
 ├── src/
-│   ├── components/          # Componentes reutilizables
+│   ├── components/              # Componentes reutilizables
 │   │   ├── ProductCard.tsx
 │   │   ├── SaleItem.tsx
 │   │   └── ReceiptPreview.tsx
-│   ├── screens/             # Pantallas principales
-│   │   ├── SalesScreen.tsx  # Punto de venta
-│   │   ├── ProductsScreen.tsx # Gestión de productos
-│   │   └── HistoryScreen.tsx  # Historial de ventas
-│   ├── services/            # Servicios y lógica de negocio
-│   │   ├── database.ts      # SQLite
-│   │   ├── printer.ts       # Impresora MRBOSS
-│   │   └── salesService.ts  # Lógica de ventas
-│   ├── models/              # Modelos TypeScript
+│   ├── screens/                 # Pantallas de la app
+│   │   ├── SalesScreen.tsx
+│   │   ├── ProductsScreen.tsx
+│   │   ├── HistoryScreen.tsx
+│   │   └── SettingsScreen.tsx
+│   ├── services/                # Lógica de negocio
+│   │   ├── database.ts          # SQLite con expo-sqlite
+│   │   ├── printer.ts           # Generación de PDFs
+│   │   └── salesService.ts      # Lógica de ventas
+│   ├── models/                  # Interfaces TypeScript
 │   │   ├── Product.ts
 │   │   ├── Sale.ts
 │   │   └── SaleItem.ts
-│   ├── utils/               # Utilidades
-│   │   └── formatters.ts
-│   └── App.tsx              # Componente raíz
-├── android/                 # Configuración Android
-├── package.json
-└── tsconfig.json
+│   └── utils/                   # Utilidades
+│       └── formatters.ts
+└── package.json
 ```
 
-## Uso de la Aplicación
+## 🎯 Características Técnicas
 
-### 1. Gestión de Productos
+### Base de Datos (expo-sqlite)
 
-- **Agregar productos**: Toca el botón "+ Agregar Producto"
-- Completa el nombre, precio y stock inicial
-- Guarda el producto
+Tres tablas principales:
+- **products**: id, name, price, stock, created_at
+- **sales**: id, total, date, created_at
+- **sale_items**: id, sale_id, product_id, quantity, price, subtotal
 
-### 2. Realizar una Venta
+### Generación de PDFs (expo-print)
 
-- Ve a la pestaña "Ventas"
-- Toca los productos para agregarlos al carrito
-- Ajusta las cantidades según necesites
-- Toca "Finalizar Venta"
-- Elige si deseas imprimir el comprobante
+- Comprobantes con formato HTML profesional
+- Incluye: encabezado, items, totales y pie de página
+- Compatible con cualquier impresora
+- Se puede compartir por cualquier app
 
-### 3. Ver Historial
+### Navegación
 
-- Ve a la pestaña "Historial"
-- Revisa el total de ventas del día
-- Toca en cualquier venta para ver detalles
-- Puedes reimprimir comprobantes
+- **Bottom Tabs** para navegación principal
+- 4 pestañas: Ventas, Productos, Historial, Configuración
+- Iconos intuitivos para cada sección
 
-### 4. Imprimir Comprobantes
-
-- Conecta la impresora MRBOSS vía Bluetooth
-- Los comprobantes incluyen:
-  - Encabezado del negocio
-  - Fecha y número de venta
-  - Lista de productos con cantidades y precios
-  - Total de la venta
-  - Mensaje de agradecimiento
-
-## Base de Datos
-
-La aplicación utiliza SQLite con las siguientes tablas:
-
-- **products**: Almacena información de productos
-- **sales**: Registra las ventas realizadas
-- **sale_items**: Detalle de items por venta
-
-## Solución de Problemas
-
-### La impresora no se conecta
-
-1. Verifica que la impresora esté encendida y emparejada con el dispositivo
-2. Asegúrate de tener los permisos de Bluetooth habilitados
-3. Revisa que la aplicación tenga permisos de ubicación (necesario para Bluetooth en Android)
-
-### Error al instalar dependencias
+## 📦 Comandos Disponibles
 
 ```bash
-# Limpiar cache de npm
-npm cache clean --force
-rm -rf node_modules
-npm install
+# Iniciar en desarrollo
+npx expo start
 
-# Limpiar Android
-cd android
-./gradlew clean
-cd ..
+# Iniciar en Android
+npx expo start --android
+
+# Iniciar en web (opcional)
+npx expo start --web
+
+# Limpiar cache
+npx expo start -c
+
+# Generar APK (requiere EAS)
+eas build --platform android
 ```
 
-### Error al compilar Android
+## 🔧 Configuración Avanzada
 
-```bash
-# Asegúrate de tener las variables de entorno correctas
-export ANDROID_HOME=$HOME/Android/Sdk
-export PATH=$PATH:$ANDROID_HOME/emulator
-export PATH=$PATH:$ANDROID_HOME/tools
-export PATH=$PATH:$ANDROID_HOME/tools/bin
-export PATH=$PATH:$ANDROID_HOME/platform-tools
-```
+### Personalizar Nombre del Negocio
 
-## Personalización
-
-### Cambiar nombre del negocio en comprobantes
-
-Edita el archivo `src/services/printer.ts` y modifica la función `printHeader`:
+Edita `src/services/printer.ts`:
 
 ```typescript
-const printHeader = async (businessName: string = 'Tu Negocio Aquí'): Promise<void> => {
-  // ...
-};
+const businessName = 'Tu Negocio Aquí';
 ```
 
-### Modificar formato de comprobante
+### Modificar Formato del Comprobante
 
-Edita las funciones en `src/services/printer.ts` para personalizar:
-- Tamaño de fuente
-- Alineación
-- Información adicional
+En `src/services/printer.ts`, función `generateReceiptHTML()`:
+- Cambia los estilos CSS
+- Agrega más información
+- Personaliza el diseño
 
-## Contribuir
+## ❓ Preguntas Frecuentes
 
-Si encuentras bugs o tienes sugerencias, no dudes en abrir un issue o pull request.
+### ¿Necesito Android Studio?
 
-## Licencia
+**NO**. Con Expo solo necesitas:
+- La app Expo Go en tu teléfono
+- Node.js en tu computadora
+- ¡Eso es todo!
+
+### ¿Funciona sin internet?
+
+**SÍ**. Toda la app funciona offline:
+- La base de datos es local (SQLite)
+- No necesita conexión a internet
+- Los datos se guardan en tu dispositivo
+
+### ¿Puedo imprimir en cualquier impresora?
+
+**SÍ**. El sistema genera PDFs que puedes:
+- Imprimir desde cualquier impresora (WiFi, Bluetooth, USB)
+- Compartir por WhatsApp, email, etc.
+- Guardar en tu dispositivo
+- Abrir en cualquier app de lectura de PDFs
+
+### ¿Los datos están seguros?
+
+**SÍ**. Los datos se guardan localmente en tu dispositivo usando SQLite.
+No se envían a ningún servidor externo.
+
+## 🐛 Solución de Problemas
+
+### La app no se conecta
+
+```bash
+# Limpia el cache y reinicia
+npx expo start -c
+```
+
+### Error al generar PDF
+
+- Verifica los permisos de almacenamiento
+- Asegúrate de tener espacio disponible en el dispositivo
+
+### Error de dependencias
+
+```bash
+# Reinstala las dependencias
+rm -rf node_modules
+npm install
+```
+
+## 🚀 Generar APK para Distribución
+
+Para crear un APK instalable:
+
+1. **Instala EAS CLI**:
+```bash
+npm install -g eas-cli
+```
+
+2. **Configura tu cuenta de Expo**:
+```bash
+eas login
+```
+
+3. **Genera el APK**:
+```bash
+eas build --platform android --profile preview
+```
+
+4. **Descarga el APK** cuando termine el build
+
+## 📄 Licencia
 
 Este proyecto es de código abierto y está disponible bajo la licencia MIT.
 
-## Soporte
+## 🤝 Contribuciones
 
-Para problemas específicos con la impresora MRBOSS, consulta la documentación del fabricante o contacta con su soporte técnico.
+Las contribuciones son bienvenidas. Por favor:
+1. Haz fork del proyecto
+2. Crea una rama para tu feature
+3. Commit tus cambios
+4. Push a la rama
+5. Abre un Pull Request
+
+## 📞 Soporte
+
+Si tienes problemas o preguntas:
+- Revisa la sección de **Configuración** en la app
+- Consulta la documentación de [Expo](https://docs.expo.dev/)
+- Revisa los logs en la terminal
 
 ---
 
-Desarrollado con ❤️ usando React Native
+**Desarrollado con ❤️ usando Expo + React Native + TypeScript**
+
+¡Disfruta gestionando tus ventas! 🎉
 
