@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { SalesScreen } from './src/screens/SalesScreen';
 import { ProductsScreen } from './src/screens/ProductsScreen';
 import { HistoryScreen } from './src/screens/HistoryScreen';
@@ -41,16 +42,18 @@ export default function App() {
 
   if (!isReady) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2196F3" />
-        <Text style={styles.loadingText}>Inicializando...</Text>
-      </View>
+      <SafeAreaProvider>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#2196F3" />
+          <Text style={styles.loadingText}>Inicializando...</Text>
+        </View>
+      </SafeAreaProvider>
     );
   }
 
   return (
-    <>
-      <StatusBar barStyle="dark-content" backgroundColor="#2196F3" />
+    <SafeAreaProvider>
+      <StatusBar barStyle="light-content" backgroundColor="#2196F3" />
       <NavigationContainer>
         <Tab.Navigator
           screenOptions={{
@@ -65,9 +68,9 @@ export default function App() {
             tabBarActiveTintColor: '#2196F3',
             tabBarInactiveTintColor: '#999',
             tabBarStyle: {
-              height: 60,
               paddingBottom: 8,
               paddingTop: 8,
+              height: 60,
             },
             tabBarLabelStyle: {
               fontSize: 12,
@@ -113,7 +116,7 @@ export default function App() {
           />
         </Tab.Navigator>
       </NavigationContainer>
-    </>
+    </SafeAreaProvider>
   );
 }
 
