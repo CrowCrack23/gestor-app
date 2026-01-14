@@ -8,6 +8,7 @@ import {
   Alert,
   ActivityIndicator,
   Modal,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -16,12 +17,16 @@ import { ReceiptPreview } from '../components/ReceiptPreview';
 import * as db from '../services/database';
 import * as printer from '../services/printer';
 import { formatCurrency, formatDate } from '../utils/formatters';
+import { useAuth } from '../auth/AuthContext';
 
 export const HistoryScreen: React.FC = () => {
   const [sales, setSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [showVoidModal, setShowVoidModal] = useState(false);
+  const [voidReason, setVoidReason] = useState('');
+  const { currentUser } = useAuth();
 
   useFocusEffect(
     useCallback(() => {
@@ -91,35 +96,112 @@ export const HistoryScreen: React.FC = () => {
   const getTodayTotal = (): number => {
     const today = new Date().toISOString().split('T')[0];
     return sales
-      .filter(sale => sale.date.startsWith(today))
+      .filter(sale => 
+        sale.date.startsWith(today) && 
+        !sale.voided_at && 
+        sale.sale_type !== 'house' // Excluir cuenta casa de totales
+      )
       .reduce((sum, sale) => sum + sale.total, 0);
   };
 
-  const renderSale = ({ item }: { item: Sale }) => (
-    <View style={styles.saleCard}>
-      <View style={styles.saleHeader}>
-        <Text style={styles.saleId}>Venta #{item.id}</Text>
-        <Text style={styles.saleDate}>{formatDate(item.date)}</Text>
-      </View>
+  const handleVoidSale = (sale: Sale) => {
+    if (sale.voided_at) {
+      Alert.alert('Error', 'Esta venta ya está anulada');
+      return;
+    }
 
-      <Text style={styles.saleTotal}>{formatCurrency(item.total)}</Text>
+    setSelectedSale(sale);
+    setShowVoidModal(true);
+  };
 
-      <View style={styles.saleActions}>
-        <TouchableOpacity
-          style={styles.viewButton}
-          onPress={() => handleViewSale(item)}
-        >
-          <Text style={styles.viewButtonText}>👁 Ver</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.printButton}
-          onPress={() => handlePrintSale(item)}
-        >
-          <Text style={styles.printButtonText}>📄 PDF</Text>
-        </TouchableOpacity>
+  const confirmVoidSale = async () => {
+    if (!voidReason.trim()) {
+      Alert.alert('Error', 'Debes ingresar un motivo de anulación');
+      return;
+    }
+
+    if (!selectedSale) return;
+
+    try {
+      setLoading(true);
+      await db.voidSale(selectedSale.id!, currentUser!.id!, voidReason.trim());
+      Alert.alert('Éxito', 'Venta anulada correctamente');
+      setShowVoidModal(false);
+      setVoidReason('');
+      setSelectedSale(null);
+      loadSales();
+    } catch (error) {
+      console.error('Error al anular venta:', error);
+      Alert.alert('Error', 'No se pudo anular la venta');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const renderSale = ({ item }: { item: Sale }) => {
+    const isHouse = item.sale_type === 'house';
+    
+    return (
+      <View style={[
+        styles.saleCard, 
+        item.voided_at && styles.voidedCard,
+        isHouse && styles.houseCard
+      ]}>
+        <View style={styles.saleHeader}>
+          <View style={styles.saleHeaderLeft}>
+            <View style={styles.saleHeaderRow}>
+              {isHouse && <Text style={styles.houseIcon}>🏠</Text>}
+              <Text style={styles.saleId}>
+                {isHouse ? 'Cuenta Casa' : 'Venta'} #{item.id}
+              </Text>
+            </View>
+            <Text style={styles.saleDate}>{formatDate(item.date)}</Text>
+            {isHouse && (
+              <Text style={styles.houseBadge}>CUENTA CASA</Text>
+            )}
+            {item.voided_at && (
+              <Text style={styles.voidedBadge}>❌ ANULADA</Text>
+            )}
+            {isHouse && item.notes && (
+              <Text style={styles.houseNotes} numberOfLines={2}>
+                📝 {item.notes}
+              </Text>
+            )}
+          </View>
+          <Text style={[
+            styles.saleTotal, 
+            item.voided_at && styles.voidedTotal,
+            isHouse && styles.houseTotal
+          ]}>
+            {formatCurrency(item.total)}
+          </Text>
+        </View>
+
+        <View style={styles.saleActions}>
+          <TouchableOpacity
+            style={styles.viewButton}
+            onPress={() => handleViewSale(item)}
+          >
+            <Text style={styles.viewButtonText}>👁 Ver</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.printButton}
+            onPress={() => handlePrintSale(item)}
+          >
+            <Text style={styles.printButtonText}>📄 PDF</Text>
+          </TouchableOpacity>
+          {!item.voided_at && currentUser?.role === 'admin' && (
+            <TouchableOpacity
+              style={styles.voidButton}
+              onPress={() => handleVoidSale(item)}
+            >
+              <Text style={styles.voidButtonText}>❌</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -191,6 +273,57 @@ export const HistoryScreen: React.FC = () => {
           </View>
         </View>
       </Modal>
+
+      {/* Modal de Anulación */}
+      <Modal
+        visible={showVoidModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowVoidModal(false)}
+      >
+        <View style={styles.voidModalOverlay}>
+          <View style={styles.voidModalContent}>
+            <Text style={styles.voidModalTitle}>Anular Venta #{selectedSale?.id}</Text>
+            <Text style={styles.voidModalSubtitle}>
+              Esta acción revertirá el stock de los productos
+            </Text>
+
+            <Text style={styles.voidLabel}>Motivo de anulación:</Text>
+            <TextInput
+              style={styles.voidInput}
+              value={voidReason}
+              onChangeText={setVoidReason}
+              placeholder="Ej: Error en el cobro, devolución, etc."
+              placeholderTextColor="#999"
+              multiline
+              numberOfLines={3}
+            />
+
+            <View style={styles.voidButtons}>
+              <TouchableOpacity
+                style={styles.voidCancelButton}
+                onPress={() => {
+                  setShowVoidModal(false);
+                  setVoidReason('');
+                }}
+              >
+                <Text style={styles.voidCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.voidConfirmButton}
+                onPress={confirmVoidSale}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.voidConfirmText}>Anular Venta</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -248,11 +381,31 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     elevation: 2,
   },
+  voidedCard: {
+    backgroundColor: '#f5f5f5',
+    opacity: 0.7,
+  },
+  houseCard: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#FF9800',
+    backgroundColor: '#FFF8E1',
+  },
   saleHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 8,
+  },
+  saleHeaderLeft: {
+    flex: 1,
+  },
+  saleHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  houseIcon: {
+    fontSize: 18,
   },
   saleId: {
     fontSize: 16,
@@ -267,12 +420,43 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#4CAF50',
-    marginBottom: 12,
+  },
+  voidedTotal: {
+    textDecorationLine: 'line-through',
+    color: '#999',
+  },
+  voidedBadge: {
+    fontSize: 12,
+    color: '#f44336',
+    fontWeight: 'bold',
+    marginTop: 4,
+  },
+  houseBadge: {
+    fontSize: 12,
+    color: '#FF9800',
+    fontWeight: 'bold',
+    marginTop: 4,
+    backgroundColor: '#FFE0B2',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+    alignSelf: 'flex-start',
+  },
+  houseNotes: {
+    fontSize: 12,
+    color: '#666',
+    fontStyle: 'italic',
+    marginTop: 6,
+    lineHeight: 16,
+  },
+  houseTotal: {
+    color: '#FF9800',
+    fontWeight: 'bold',
   },
   saleActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    gap: 8,
+    marginTop: 12,
   },
   viewButton: {
     backgroundColor: '#2196F3',
@@ -294,6 +478,85 @@ const styles = StyleSheet.create({
   printButtonText: {
     color: '#fff',
     fontWeight: '600',
+  },
+  voidButton: {
+    backgroundColor: '#f44336',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+    marginLeft: 8,
+  },
+  voidButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  voidModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  voidModalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 24,
+    width: '90%',
+    maxWidth: 400,
+  },
+  voidModalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8,
+  },
+  voidModalSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 20,
+  },
+  voidLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  voidInput: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    minHeight: 80,
+    textAlignVertical: 'top',
+    marginBottom: 20,
+  },
+  voidButtons: {
+    flexDirection: 'row',
+  },
+  voidCancelButton: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#999',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  voidCancelText: {
+    color: '#666',
+    fontWeight: '600',
+  },
+  voidConfirmButton: {
+    flex: 1,
+    backgroundColor: '#f44336',
+    padding: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  voidConfirmText: {
+    color: '#fff',
+    fontWeight: 'bold',
   },
   modalContainer: {
     flex: 1,

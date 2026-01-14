@@ -8,56 +8,63 @@ import {
   Alert,
   ActivityIndicator,
   TextInput,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { TableOrder } from '../models/TableOrder';
+import { TableOrderItem } from '../models/TableOrderItem';
 import { Product } from '../models/Product';
-import { SaleItem as SaleItemModel } from '../models/SaleItem';
-import { PaymentMethod, CashSession } from '../models/CashSession';
+import { PaymentMethod } from '../models/CashSession';
 import * as db from '../services/database';
-import * as salesService from '../services/salesService';
+import * as tableService from '../services/tableService';
 import * as printer from '../services/printer';
 import { formatCurrency } from '../utils/formatters';
 import { useAuth } from '../auth/AuthContext';
-import { CashOpenScreen } from './CashOpenScreen';
-import { CashCloseScreen } from './CashCloseScreen';
 
-export const SalesScreen: React.FC = () => {
+type Props = {
+  route: {
+    params: {
+      tableOrderId: number;
+      tableNumber: number;
+    };
+  };
+};
+
+export const TableDetailScreen: React.FC<Props> = ({ route }) => {
+  const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const { currentUser } = useAuth();
-  const [cashSession, setCashSession] = useState<CashSession | null>(null);
-  const [showCashOpenModal, setShowCashOpenModal] = useState(false);
-  const [showCashCloseModal, setShowCashCloseModal] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
+  const { tableOrderId, tableNumber } = route.params;
+
+  const [tableOrder, setTableOrder] = useState<TableOrder | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
-  const [cart, setCart] = useState<SaleItemModel[]>([]);
   const [loading, setLoading] = useState(false);
   const [quantityInput, setQuantityInput] = useState('1');
 
   useFocusEffect(
     useCallback(() => {
+      loadTableOrder();
       loadProducts();
-      checkCashSession();
-    }, [])
+    }, [tableOrderId])
   );
 
-  const checkCashSession = async () => {
+  const loadTableOrder = async () => {
     try {
-      const openSession = await db.getOpenCashSession();
-      setCashSession(openSession);
-      
-      if (!openSession) {
-        setShowCashOpenModal(true);
+      const order = await db.getTableOrderById(tableOrderId);
+      if (!order) {
+        Alert.alert('Error', 'Pedido no encontrado');
+        navigation.goBack();
+        return;
       }
+      setTableOrder(order);
     } catch (error) {
-      console.error('Error al verificar sesión de caja:', error);
+      console.error('Error al cargar pedido:', error);
+      Alert.alert('Error', 'No se pudo cargar el pedido');
     }
-  };
-
-  const handleCashSessionSuccess = () => {
-    checkCashSession();
   };
 
   const loadProducts = async () => {
@@ -65,19 +72,18 @@ export const SalesScreen: React.FC = () => {
       const allProducts = await db.getAllProducts();
       setProducts(allProducts);
     } catch (error) {
-      Alert.alert('Error', 'No se pudieron cargar los productos');
-      console.error(error);
+      console.error('Error al cargar productos:', error);
     }
   };
 
   const handleSearch = (text: string) => {
     setSearchQuery(text);
-    
+
     if (text.trim() === '') {
       setSearchResults([]);
       setShowSearchResults(false);
     } else {
-      const filtered = products.filter(product =>
+      const filtered = products.filter((product) =>
         product.name.toLowerCase().includes(text.toLowerCase())
       );
       setSearchResults(filtered);
@@ -85,111 +91,155 @@ export const SalesScreen: React.FC = () => {
     }
   };
 
-  const handleSelectProduct = (product: Product) => {
+  const handleSelectProduct = async (product: Product) => {
     const quantity = parseInt(quantityInput) || 1;
-    
+
     if (quantity <= 0) {
       Alert.alert('Cantidad inválida', 'La cantidad debe ser mayor a 0');
       return;
     }
 
     if (quantity > product.stock) {
-      Alert.alert('Stock insuficiente', `Solo hay ${product.stock} unidades disponibles`);
-      return;
-    }
-
-    // Verificar si el producto ya está en el carrito
-    const existingItem = cart.find(item => item.product_id === product.id);
-
-    if (existingItem) {
-      // Actualizar cantidad
-      const newQuantity = existingItem.quantity + quantity;
-      if (newQuantity > product.stock) {
-        Alert.alert('Stock insuficiente', `Solo hay ${product.stock} unidades disponibles`);
-        return;
-      }
-      
-      const updatedCart = cart.map(item =>
-        item.product_id === product.id
-          ? {
-              ...item,
-              quantity: newQuantity,
-              subtotal: salesService.calculateSubtotal(item.price, newQuantity),
-            }
-          : item
+      Alert.alert(
+        'Stock insuficiente',
+        `Solo hay ${product.stock} unidades disponibles`
       );
-      setCart(updatedCart);
-    } else {
-      // Agregar nuevo item
-      const newItem = salesService.createSaleItemFromProduct(product, quantity);
-      setCart([...cart, newItem]);
-    }
-
-    // Limpiar búsqueda
-    setSearchQuery('');
-    setSearchResults([]);
-    setShowSearchResults(false);
-    setQuantityInput('1');
-  };
-
-  const removeFromCart = (item: SaleItemModel) => {
-    setCart(cart.filter(cartItem => cartItem.product_id !== item.product_id));
-  };
-
-  const calculateTotal = (): number => {
-    return cart.reduce((sum, item) => sum + item.subtotal, 0);
-  };
-
-  const handleSell = async () => {
-    if (cart.length === 0) {
-      Alert.alert('Carrito vacío', 'Agrega productos para realizar una venta');
       return;
     }
 
-    if (!cashSession) {
-      Alert.alert('Error', 'No hay caja abierta. Abre una caja para poder vender.');
-      setShowCashOpenModal(true);
-      return;
-    }
+    try {
+      setLoading(true);
+      await tableService.addProductToTable(tableOrderId, product, quantity);
+      await loadTableOrder();
 
-    // Mostrar selector de método de pago antes de confirmar
-    Alert.alert(
-      'Método de Pago',
-      `Total: ${formatCurrency(calculateTotal())}\nSelecciona el método de pago:`,
+      // Limpiar búsqueda
+      setSearchQuery('');
+      setSearchResults([]);
+      setShowSearchResults(false);
+      setQuantityInput('1');
+    } catch (error: any) {
+      console.error('Error al agregar producto:', error);
+      Alert.alert('Error', error.message || 'No se pudo agregar el producto');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateQuantity = (item: TableOrderItem) => {
+    Alert.prompt(
+      'Actualizar cantidad',
+      `Cantidad actual: ${item.quantity}`,
       [
         { text: 'Cancelar', style: 'cancel' },
-        { text: '💵 Efectivo', onPress: () => { setPaymentMethod('cash'); processSale(); } },
-        { text: '💳 Tarjeta', onPress: () => { setPaymentMethod('card'); processSale(); } },
-        { text: '📱 Transferencia', onPress: () => { setPaymentMethod('transfer'); processSale(); } },
+        {
+          text: 'Actualizar',
+          onPress: async (text) => {
+            const newQuantity = parseInt(text || '0');
+            if (newQuantity <= 0) {
+              Alert.alert('Error', 'La cantidad debe ser mayor a 0');
+              return;
+            }
+
+            try {
+              setLoading(true);
+              await tableService.updateTableItemQuantity(item.id!, newQuantity);
+              await loadTableOrder();
+            } catch (error: any) {
+              Alert.alert('Error', error.message || 'No se pudo actualizar');
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+      ],
+      'plain-text',
+      item.quantity.toString(),
+      'number-pad'
+    );
+  };
+
+  const handleRemoveItem = (item: TableOrderItem) => {
+    Alert.alert(
+      'Eliminar producto',
+      `¿Eliminar ${item.product_name} del pedido?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setLoading(true);
+              await tableService.removeTableItem(item.id!);
+              await loadTableOrder();
+            } catch (error: any) {
+              Alert.alert('Error', error.message || 'No se pudo eliminar');
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
       ]
     );
   };
 
-  const processSale = async () => {
+  const handleCheckout = async () => {
+    if (!tableOrder || !tableOrder.items || tableOrder.items.length === 0) {
+      Alert.alert('Pedido vacío', 'Agrega productos antes de cobrar');
+      return;
+    }
+
+    // Seleccionar método de pago
+    Alert.alert(
+      'Método de Pago',
+      `Total: ${formatCurrency(tableOrder.subtotal)}\nSelecciona el método de pago:`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: '💵 Efectivo',
+          onPress: () => processCheckout('cash'),
+        },
+        {
+          text: '💳 Tarjeta',
+          onPress: () => processCheckout('card'),
+        },
+        {
+          text: '📱 Transferencia',
+          onPress: () => processCheckout('transfer'),
+        },
+      ]
+    );
+  };
+
+  const processCheckout = async (paymentMethod: PaymentMethod) => {
     try {
       setLoading(true);
 
-      // Validar stock
-      for (const item of cart) {
-        const hasStock = await salesService.validateStock(item.product_id, item.quantity);
-        if (!hasStock) {
-          Alert.alert('Stock insuficiente', `No hay suficiente stock de ${item.product_name}`);
-          return;
-        }
+      const cashSession = await db.getOpenCashSession();
+      if (!cashSession) {
+        Alert.alert(
+          'Error',
+          'No hay caja abierta. Abre una caja para poder cobrar.'
+        );
+        return;
       }
 
-      // Procesar la venta
-      const sale = await salesService.processSale(cart, currentUser?.id, paymentMethod, cashSession?.id);
+      // Procesar el cobro
+      const sale = await tableService.checkoutTable(
+        tableOrderId,
+        paymentMethod,
+        currentUser?.id,
+        cashSession.id
+      );
 
       Alert.alert(
-        'Venta realizada',
+        'Cobro exitoso',
         '¿Deseas generar el comprobante en PDF?',
         [
           {
             text: 'No',
             onPress: () => {
-              setCart([]);
-              loadProducts();
+              navigation.goBack();
             },
           },
           {
@@ -200,45 +250,82 @@ export const SalesScreen: React.FC = () => {
               } catch (error) {
                 console.error(error);
               } finally {
-                setCart([]);
-                loadProducts();
+                navigation.goBack();
               }
             },
           },
         ]
       );
-    } catch (error) {
-      Alert.alert('Error', 'No se pudo procesar la venta');
-      console.error(error);
+    } catch (error: any) {
+      console.error('Error al cobrar:', error);
+      Alert.alert('Error', error.message || 'No se pudo procesar el cobro');
     } finally {
       setLoading(false);
     }
   };
 
-  const total = calculateTotal();
+  const handleCancelTable = () => {
+    Alert.alert(
+      'Cancelar mesa',
+      '¿Estás seguro de cancelar este pedido? Se perderá toda la información.',
+      [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Sí, cancelar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setLoading(true);
+              await tableService.cancelTable(tableOrderId);
+              navigation.goBack();
+            } catch (error: any) {
+              Alert.alert('Error', error.message || 'No se pudo cancelar');
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  if (!tableOrder) {
+    return (
+      <SafeAreaView style={styles.container} edges={['bottom']}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#2196F3" />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.headerRow}>
+          <Text style={styles.title}>Mesa {tableNumber}</Text>
+          <TouchableOpacity
+            style={styles.cancelButton}
+            onPress={handleCancelTable}
+            disabled={loading}
+          >
+            <Text style={styles.cancelButtonText}>✕ Cancelar</Text>
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.subtitle}>
+          {tableOrder.items?.length || 0} productos
+        </Text>
+      </View>
+
       {/* Buscador */}
       <View style={styles.searchSection}>
-        <View style={styles.headerRow}>
-          <Text style={styles.title}>Nueva Venta</Text>
-          {cashSession && (
-            <TouchableOpacity
-              style={styles.cashButton}
-              onPress={() => setShowCashCloseModal(true)}
-            >
-              <Text style={styles.cashButtonText}>🔒 Cerrar Caja</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-        
         <View style={styles.searchRow}>
           <View style={styles.searchContainer}>
             <Text style={styles.searchIcon}>🔍</Text>
             <TextInput
               style={styles.searchInput}
-              placeholder="Buscar producto..."
+              placeholder="Buscar producto para agregar..."
               placeholderTextColor="#999"
               value={searchQuery}
               onChangeText={handleSearch}
@@ -257,7 +344,7 @@ export const SalesScreen: React.FC = () => {
               </TouchableOpacity>
             )}
           </View>
-          
+
           <View style={styles.quantityContainer}>
             <Text style={styles.quantityLabel}>Cant:</Text>
             <TextInput
@@ -276,7 +363,7 @@ export const SalesScreen: React.FC = () => {
             {searchResults.length > 0 ? (
               <FlatList
                 data={searchResults}
-                keyExtractor={item => item.id!.toString()}
+                keyExtractor={(item) => item.id!.toString()}
                 renderItem={({ item }) => (
                   <TouchableOpacity
                     style={styles.searchResultItem}
@@ -284,9 +371,13 @@ export const SalesScreen: React.FC = () => {
                   >
                     <View style={styles.resultInfo}>
                       <Text style={styles.resultName}>{item.name}</Text>
-                      <Text style={styles.resultStock}>Stock: {item.stock}</Text>
+                      <Text style={styles.resultStock}>
+                        Stock: {item.stock}
+                      </Text>
                     </View>
-                    <Text style={styles.resultPrice}>{formatCurrency(item.price)}</Text>
+                    <Text style={styles.resultPrice}>
+                      {formatCurrency(item.price)}
+                    </Text>
                   </TouchableOpacity>
                 )}
                 style={styles.searchResultsList}
@@ -298,79 +389,79 @@ export const SalesScreen: React.FC = () => {
         )}
       </View>
 
-      {/* Lista de productos en el carrito */}
-      <View style={styles.cartSection}>
-        <Text style={styles.sectionTitle}>Productos agregados:</Text>
-        
-        {cart.length === 0 ? (
-          <Text style={styles.emptyCart}>
+      {/* Lista de productos en el pedido */}
+      <View style={styles.itemsSection}>
+        <Text style={styles.sectionTitle}>Productos en la mesa:</Text>
+
+        {!tableOrder.items || tableOrder.items.length === 0 ? (
+          <Text style={styles.emptyItems}>
             No hay productos agregados.{'\n'}
             Busca y selecciona productos arriba.
           </Text>
         ) : (
           <FlatList
-            data={cart}
-            keyExtractor={item => item.product_id.toString()}
+            data={tableOrder.items}
+            keyExtractor={(item) => item.id!.toString()}
             renderItem={({ item }) => (
-              <View style={styles.cartItem}>
-                <View style={styles.cartItemInfo}>
-                  <Text style={styles.cartItemName}>{item.product_name}</Text>
-                  <Text style={styles.cartItemQuantity}>Cantidad: {item.quantity}</Text>
-                  <Text style={styles.cartItemPrice}>
+              <View style={styles.itemCard}>
+                <View style={styles.itemInfo}>
+                  <Text style={styles.itemName}>{item.product_name}</Text>
+                  <Text style={styles.itemQuantity}>
+                    Cantidad: {item.quantity}
+                  </Text>
+                  <Text style={styles.itemPrice}>
                     {formatCurrency(item.price)} x {item.quantity}
                   </Text>
                 </View>
-                <View style={styles.cartItemRight}>
-                  <Text style={styles.cartItemTotal}>{formatCurrency(item.subtotal)}</Text>
-                  <TouchableOpacity
-                    onPress={() => removeFromCart(item)}
-                    style={styles.removeButton}
-                  >
-                    <Text style={styles.removeButtonText}>✕</Text>
-                  </TouchableOpacity>
+                <View style={styles.itemRight}>
+                  <Text style={styles.itemTotal}>
+                    {formatCurrency(item.subtotal)}
+                  </Text>
+                  <View style={styles.itemActions}>
+                    <TouchableOpacity
+                      onPress={() => handleUpdateQuantity(item)}
+                      style={styles.editButton}
+                    >
+                      <Text style={styles.editButtonText}>✎</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => handleRemoveItem(item)}
+                      style={styles.removeButton}
+                    >
+                      <Text style={styles.removeButtonText}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
             )}
-            style={styles.cartList}
+            style={styles.itemsList}
           />
         )}
       </View>
 
-      {/* Total y botón de vender */}
-      {cart.length > 0 && (
+      {/* Footer con total y botón de cobrar */}
+      {tableOrder.items && tableOrder.items.length > 0 && (
         <View style={styles.footer}>
           <View style={styles.totalContainer}>
             <Text style={styles.totalLabel}>TOTAL:</Text>
-            <Text style={styles.totalAmount}>{formatCurrency(total)}</Text>
+            <Text style={styles.totalAmount}>
+              {formatCurrency(tableOrder.subtotal)}
+            </Text>
           </View>
-          
+
           <TouchableOpacity
-            style={styles.sellButton}
-            onPress={handleSell}
+            style={styles.checkoutButton}
+            onPress={handleCheckout}
             disabled={loading}
           >
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.sellButtonText}>💰 VENDER</Text>
+              <Text style={styles.checkoutButtonText}>💰 COBRAR</Text>
             )}
           </TouchableOpacity>
         </View>
       )}
-
-      {/* Modales de Caja */}
-      <CashOpenScreen
-        visible={showCashOpenModal}
-        onClose={() => setShowCashOpenModal(false)}
-        onSuccess={handleCashSessionSuccess}
-      />
-      
-      <CashCloseScreen
-        visible={showCashCloseModal}
-        session={cashSession}
-        onClose={() => setShowCashCloseModal(false)}
-        onSuccess={handleCashSessionSuccess}
-      />
     </SafeAreaView>
   );
 };
@@ -380,7 +471,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
-  searchSection: {
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  header: {
     backgroundColor: '#fff',
     padding: 16,
     elevation: 4,
@@ -393,23 +489,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 8,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#333',
   },
-  cashButton: {
+  subtitle: {
+    fontSize: 14,
+    color: '#666',
+  },
+  cancelButton: {
     backgroundColor: '#f44336',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 6,
   },
-  cashButtonText: {
+  cancelButtonText: {
     color: '#fff',
     fontSize: 13,
     fontWeight: '600',
+  },
+  searchSection: {
+    backgroundColor: '#fff',
+    padding: 16,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
   },
   searchRow: {
     flexDirection: 'row',
@@ -508,7 +617,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#999',
   },
-  cartSection: {
+  itemsSection: {
     flex: 1,
     padding: 16,
   },
@@ -518,17 +627,17 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 12,
   },
-  emptyCart: {
+  emptyItems: {
     textAlign: 'center',
     color: '#999',
     fontSize: 16,
     marginTop: 32,
     lineHeight: 24,
   },
-  cartList: {
+  itemsList: {
     flex: 1,
   },
-  cartItem: {
+  itemCard: {
     flexDirection: 'row',
     backgroundColor: '#fff',
     padding: 16,
@@ -540,33 +649,50 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 2,
   },
-  cartItemInfo: {
+  itemInfo: {
     flex: 1,
   },
-  cartItemName: {
+  itemName: {
     fontSize: 16,
     fontWeight: '600',
     color: '#333',
     marginBottom: 4,
   },
-  cartItemQuantity: {
+  itemQuantity: {
     fontSize: 14,
     color: '#666',
     marginBottom: 2,
   },
-  cartItemPrice: {
+  itemPrice: {
     fontSize: 14,
     color: '#666',
   },
-  cartItemRight: {
+  itemRight: {
     alignItems: 'flex-end',
     justifyContent: 'space-between',
   },
-  cartItemTotal: {
+  itemTotal: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#2196F3',
     marginBottom: 8,
+  },
+  itemActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  editButton: {
+    backgroundColor: '#2196F3',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  editButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   removeButton: {
     backgroundColor: '#f44336',
@@ -609,16 +735,16 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#4CAF50',
   },
-  sellButton: {
+  checkoutButton: {
     backgroundColor: '#4CAF50',
     padding: 18,
     borderRadius: 8,
     alignItems: 'center',
     elevation: 4,
   },
-  sellButtonText: {
+  checkoutButtonText: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
   },
 });

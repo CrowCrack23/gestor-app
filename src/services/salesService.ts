@@ -1,24 +1,44 @@
 import { Product } from '../models/Product';
 import { Sale } from '../models/Sale';
 import { SaleItem } from '../models/SaleItem';
+import { PaymentMethod } from '../models/CashSession';
 import { getCurrentDateTime } from '../utils/formatters';
 import * as db from './database';
 
 /**
- * Procesa una venta completa
+ * Procesa una venta completa o salida de cuenta casa
  */
-export const processSale = async (items: SaleItem[]): Promise<Sale> => {
+export const processSale = async (
+  items: SaleItem[], 
+  userId?: number,
+  paymentMethod: PaymentMethod = 'cash',
+  cashSessionId?: number,
+  tableOrderId?: number,
+  saleType: 'normal' | 'house' = 'normal',
+  notes?: string
+): Promise<Sale> => {
   if (items.length === 0) {
     throw new Error('No hay productos en la venta');
   }
 
   // Calcular total
-  const total = items.reduce((sum, item) => sum + item.subtotal, 0);
+  let total = items.reduce((sum, item) => sum + item.subtotal, 0);
+  
+  // Si es cuenta casa, el total es 0
+  if (saleType === 'house') {
+    total = 0;
+  }
 
   // Crear la venta
   const sale: Sale = {
     total,
     date: getCurrentDateTime(),
+    user_id: userId,
+    payment_method: saleType === 'house' ? 'cash' : paymentMethod, // Cuenta casa siempre cash por defecto
+    cash_session_id: saleType === 'house' ? undefined : cashSessionId, // Cuenta casa no requiere sesión
+    table_order_id: tableOrderId,
+    sale_type: saleType,
+    notes: notes,
   };
 
   // Guardar en la base de datos

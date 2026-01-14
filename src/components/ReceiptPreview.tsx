@@ -26,6 +26,9 @@ export const ReceiptPreview: React.FC<ReceiptPreviewProps> = ({
         <View style={styles.info}>
           <Text style={styles.infoText}>Fecha: {formatDate(sale.date)}</Text>
           <Text style={styles.infoText}>Venta #: {sale.id || 'Nueva'}</Text>
+          {sale.username && (
+            <Text style={styles.infoText}>Vendedor: {sale.username}</Text>
+          )}
           <Text style={styles.divider}>--------------------------------</Text>
         </View>
 

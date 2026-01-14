@@ -177,12 +177,12 @@ export const ProductsScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <View style={styles.header}>
-        <Text style={styles.title}>Gestión de Productos</Text>
+        <Text style={styles.title} numberOfLines={1}>Productos</Text>
         <TouchableOpacity
           style={styles.addButton}
           onPress={() => openModal()}
         >
-          <Text style={styles.addButtonText}>+ Agregar Producto</Text>
+          <Text style={styles.addButtonText}>+ Agregar</Text>
         </TouchableOpacity>
       </View>
 
@@ -294,17 +294,20 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#333',
+    flex: 1,
+    marginRight: 12,
   },
   addButton: {
     backgroundColor: '#2196F3',
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 8,
+    flexShrink: 0,
   },
   addButtonText: {
     color: '#fff',
     fontWeight: '600',
-    fontSize: 16,
+    fontSize: 15,
   },
   loader: {
     marginTop: 32,
