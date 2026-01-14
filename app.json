@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "app-gestor",
-    "slug": "app-gestor",
+    "slug": "gestor-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -21,13 +21,26 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.BLUETOOTH",
+        "android.permission.BLUETOOTH_ADMIN",
+        "android.permission.BLUETOOTH_CONNECT"
+      ],
+      "package": "com.gestorapp.gestorapp"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-sqlite"
-    ]
+      "expo-sqlite",
+      "react-native-ble-plx"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "6af5ea73-8336-46fa-bb95-c2048a757c3f"
+      }
+    },
+    "owner": "gestor-app"
   }
 }
