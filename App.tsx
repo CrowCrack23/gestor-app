@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from './src/auth/AuthContext';
 import { SalesScreen } from './src/screens/SalesScreen';
@@ -21,9 +22,43 @@ import { SetupAdminScreen } from './src/screens/SetupAdminScreen';
 import { UsersScreen } from './src/screens/UsersScreen';
 import { CashHistoryScreen } from './src/screens/CashHistoryScreen';
 import { ReportsScreen } from './src/screens/ReportsScreen';
+import { TablesScreen } from './src/screens/TablesScreen';
+import { TableDetailScreen } from './src/screens/TableDetailScreen';
 import * as db from './src/services/database';
 
 const Tab = createBottomTabNavigator();
+const Stack = createNativeStackNavigator();
+
+/**
+ * Stack Navigator para Mesas
+ */
+function TablesStack() {
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerStyle: {
+          backgroundColor: '#2196F3',
+        },
+        headerTintColor: '#fff',
+        headerTitleStyle: {
+          fontWeight: 'bold',
+          fontSize: 20,
+        },
+      }}
+    >
+      <Stack.Screen
+        name="TablesMain"
+        component={TablesScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="TableDetail"
+        component={TableDetailScreen}
+        options={{ title: 'Detalle de Mesa' }}
+      />
+    </Stack.Navigator>
+  );
+}
 
 /**
  * Componente interno con acceso al contexto de autenticación
@@ -122,6 +157,18 @@ function AppContent() {
                 )}
               </View>
             ),
+          }}
+        />
+
+        {/* Tab Mesas: disponible para todos */}
+        <Tab.Screen
+          name="Mesas"
+          component={TablesStack}
+          options={{
+            tabBarIcon: ({ color, size }) => (
+              <Text style={{ fontSize: size, color }}>🍽️</Text>
+            ),
+            headerShown: false,
           }}
         />
 

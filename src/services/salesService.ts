@@ -12,7 +12,8 @@ export const processSale = async (
   items: SaleItem[], 
   userId?: number,
   paymentMethod: PaymentMethod = 'cash',
-  cashSessionId?: number
+  cashSessionId?: number,
+  tableOrderId?: number
 ): Promise<Sale> => {
   if (items.length === 0) {
     throw new Error('No hay productos en la venta');
@@ -28,6 +29,7 @@ export const processSale = async (
     user_id: userId,
     payment_method: paymentMethod,
     cash_session_id: cashSessionId,
+    table_order_id: tableOrderId,
   };
 
   // Guardar en la base de datos

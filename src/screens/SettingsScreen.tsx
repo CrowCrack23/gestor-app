@@ -70,6 +70,34 @@ export const SettingsScreen: React.FC = () => {
         </View>
       </View>
 
+      {/* Sección de Mesas */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>🍽️ Sistema de Mesas</Text>
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Gestión de Mesas</Text>
+          <Text style={styles.cardDescription}>
+            Maneja pedidos de restaurante con mesas numeradas.
+          </Text>
+          
+          <View style={styles.infoBox}>
+            <Text style={styles.infoTitle}>✅ Características:</Text>
+            <Text style={styles.infoText}>• 20 mesas disponibles por defecto</Text>
+            <Text style={styles.infoText}>• Múltiples pedidos simultáneos</Text>
+            <Text style={styles.infoText}>• Agregar productos gradualmente</Text>
+            <Text style={styles.infoText}>• Editar y eliminar items del pedido</Text>
+            <Text style={styles.infoText}>• Cobro al finalizar el servicio</Text>
+          </View>
+
+          <View style={styles.infoBox}>
+            <Text style={styles.infoTitle}>📌 Cómo usar:</Text>
+            <Text style={styles.infoText}>1. Ve a la pestaña "Mesas"</Text>
+            <Text style={styles.infoText}>2. Toca una mesa libre para abrirla</Text>
+            <Text style={styles.infoText}>3. Agrega productos al pedido</Text>
+            <Text style={styles.infoText}>4. Cuando el cliente pida la cuenta, presiona "Cobrar"</Text>
+          </View>
+        </View>
+      </View>
+
       {/* Información de la App */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>ℹ️ Información</Text>
@@ -107,7 +135,12 @@ export const SettingsScreen: React.FC = () => {
             Al finalizar una venta, genera un PDF que puedes imprimir o compartir.
           </Text>
 
-          <Text style={styles.instructionTitle}>4. Consulta Historial</Text>
+          <Text style={styles.instructionTitle}>4. Gestiona Mesas</Text>
+          <Text style={styles.instructionText}>
+            Usa "Mesas" para gestionar pedidos de restaurante. Abre mesas, agrega productos gradualmente y cobra al final.
+          </Text>
+
+          <Text style={styles.instructionTitle}>5. Consulta Historial</Text>
           <Text style={styles.instructionText}>
             Revisa todas tus ventas en la pestaña "Historial".
           </Text>

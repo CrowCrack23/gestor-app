@@ -8,6 +8,7 @@ export interface Sale {
   user_id?: number;
   username?: string; // Para mostrar en recibo (join con users)
   cash_session_id?: number;
+  table_order_id?: number; // Para trazabilidad de pedidos de mesa
   payment_method: PaymentMethod;
   voided_at?: string;
   voided_by_user_id?: number;

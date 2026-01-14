@@ -4,10 +4,12 @@ import { Sale } from '../models/Sale';
 import { SaleItem } from '../models/SaleItem';
 import { User } from '../models/User';
 import { CashSession } from '../models/CashSession';
+import { TableOrder } from '../models/TableOrder';
+import { TableOrderItem } from '../models/TableOrderItem';
 
 let db: SQLite.SQLiteDatabase;
 
-const CURRENT_DB_VERSION = 4;
+const CURRENT_DB_VERSION = 5;
 
 /**
  * Inicializa la base de datos y crea las tablas si no existen
@@ -178,6 +180,53 @@ export const initDatabase = async (): Promise<void> => {
       }
 
       console.log('Migración v4 completada');
+    }
+
+    // Migración versión 4 -> 5: Sistema de mesas
+    if (currentVersion < 5) {
+      console.log('Aplicando migración v5: Sistema de mesas...');
+
+      // Crear tabla de pedidos de mesa
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS table_orders (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          table_number INTEGER NOT NULL,
+          status TEXT NOT NULL DEFAULT 'open',
+          subtotal REAL NOT NULL DEFAULT 0,
+          opened_at TEXT NOT NULL,
+          opened_by_user_id INTEGER,
+          cash_session_id INTEGER,
+          created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (opened_by_user_id) REFERENCES users(id),
+          FOREIGN KEY (cash_session_id) REFERENCES cash_sessions(id)
+        );
+      `);
+
+      // Crear tabla de items de pedidos de mesa
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS table_order_items (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          table_order_id INTEGER NOT NULL,
+          product_id INTEGER NOT NULL,
+          quantity INTEGER NOT NULL,
+          price REAL NOT NULL,
+          subtotal REAL NOT NULL,
+          FOREIGN KEY (table_order_id) REFERENCES table_orders(id) ON DELETE CASCADE,
+          FOREIGN KEY (product_id) REFERENCES products(id)
+        );
+      `);
+
+      // Agregar columna table_order_id a sales
+      try {
+        await db.execAsync(`ALTER TABLE sales ADD COLUMN table_order_id INTEGER;`);
+        console.log('Columna table_order_id agregada a sales');
+      } catch (error: any) {
+        if (!error.message?.includes('duplicate column')) {
+          throw error;
+        }
+      }
+
+      console.log('Migración v5 completada');
     }
 
     // Actualizar versión de la BD
@@ -824,3 +873,282 @@ export const listCashSessions = async (limit: number = 50): Promise<CashSession[
   }
 };
 
+// ==================== PEDIDOS DE MESA ====================
+
+/**
+ * Obtiene todos los pedidos de mesa activos
+ */
+export const getAllTableOrders = async (): Promise<TableOrder[]> => {
+  try {
+    const result = await db.getAllAsync<TableOrder>(
+      `SELECT to.*, u.username as opened_by_username
+       FROM table_orders to
+       LEFT JOIN users u ON to.opened_by_user_id = u.id
+       WHERE to.status = 'open'
+       ORDER BY to.table_number ASC`
+    );
+    return result;
+  } catch (error) {
+    console.error('Error al obtener pedidos de mesa:', error);
+    throw error;
+  }
+};
+
+/**
+ * Obtiene un pedido de mesa por ID con sus items
+ */
+export const getTableOrderById = async (id: number): Promise<TableOrder | null> => {
+  try {
+    const tableOrder = await db.getFirstAsync<TableOrder>(
+      `SELECT to.*, u.username as opened_by_username
+       FROM table_orders to
+       LEFT JOIN users u ON to.opened_by_user_id = u.id
+       WHERE to.id = ?`,
+      [id]
+    );
+    
+    if (!tableOrder) {
+      return null;
+    }
+    
+    // Obtener items del pedido con información del producto
+    const items = await db.getAllAsync<TableOrderItem>(
+      `SELECT toi.*, p.name as product_name 
+       FROM table_order_items toi 
+       JOIN products p ON toi.product_id = p.id 
+       WHERE toi.table_order_id = ?`,
+      [id]
+    );
+    
+    tableOrder.items = items;
+    
+    return tableOrder;
+  } catch (error) {
+    console.error('Error al obtener pedido de mesa:', error);
+    throw error;
+  }
+};
+
+/**
+ * Obtiene un pedido de mesa por número de mesa
+ */
+export const getTableOrderByTableNumber = async (tableNumber: number): Promise<TableOrder | null> => {
+  try {
+    const tableOrder = await db.getFirstAsync<TableOrder>(
+      `SELECT to.*, u.username as opened_by_username
+       FROM table_orders to
+       LEFT JOIN users u ON to.opened_by_user_id = u.id
+       WHERE to.table_number = ? AND to.status = 'open'`,
+      [tableNumber]
+    );
+    
+    if (!tableOrder) {
+      return null;
+    }
+    
+    // Obtener items del pedido
+    const items = await db.getAllAsync<TableOrderItem>(
+      `SELECT toi.*, p.name as product_name 
+       FROM table_order_items toi 
+       JOIN products p ON toi.product_id = p.id 
+       WHERE toi.table_order_id = ?`,
+      [tableOrder.id]
+    );
+    
+    tableOrder.items = items;
+    
+    return tableOrder;
+  } catch (error) {
+    console.error('Error al obtener pedido por número de mesa:', error);
+    throw error;
+  }
+};
+
+/**
+ * Crea un nuevo pedido de mesa
+ */
+export const createTableOrder = async (tableOrder: TableOrder): Promise<number> => {
+  try {
+    // Verificar que la mesa no esté ocupada
+    const existingOrder = await getTableOrderByTableNumber(tableOrder.table_number);
+    if (existingOrder) {
+      throw new Error('La mesa ya está ocupada');
+    }
+
+    const result = await db.runAsync(
+      `INSERT INTO table_orders (table_number, status, subtotal, opened_at, opened_by_user_id, cash_session_id) 
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        tableOrder.table_number,
+        tableOrder.status || 'open',
+        tableOrder.subtotal || 0,
+        tableOrder.opened_at,
+        tableOrder.opened_by_user_id || null,
+        tableOrder.cash_session_id || null,
+      ]
+    );
+    return result.lastInsertRowId;
+  } catch (error) {
+    console.error('Error al crear pedido de mesa:', error);
+    throw error;
+  }
+};
+
+/**
+ * Agrega un item a un pedido de mesa
+ */
+export const addTableOrderItem = async (tableOrderId: number, item: TableOrderItem): Promise<number> => {
+  try {
+    let itemId: number = 0;
+
+    await db.withTransactionAsync(async () => {
+      // Verificar si el producto ya existe en el pedido
+      const existingItem = await db.getFirstAsync<TableOrderItem>(
+        'SELECT * FROM table_order_items WHERE table_order_id = ? AND product_id = ?',
+        [tableOrderId, item.product_id]
+      );
+
+      if (existingItem) {
+        // Actualizar cantidad
+        const newQuantity = existingItem.quantity + item.quantity;
+        const newSubtotal = item.price * newQuantity;
+        
+        await db.runAsync(
+          'UPDATE table_order_items SET quantity = ?, subtotal = ? WHERE id = ?',
+          [newQuantity, newSubtotal, existingItem.id]
+        );
+        itemId = existingItem.id!;
+      } else {
+        // Insertar nuevo item
+        const result = await db.runAsync(
+          'INSERT INTO table_order_items (table_order_id, product_id, quantity, price, subtotal) VALUES (?, ?, ?, ?, ?)',
+          [tableOrderId, item.product_id, item.quantity, item.price, item.subtotal]
+        );
+        itemId = result.lastInsertRowId;
+      }
+
+      // Actualizar subtotal del pedido
+      await updateTableOrderSubtotal(tableOrderId);
+    });
+
+    return itemId;
+  } catch (error) {
+    console.error('Error al agregar item al pedido:', error);
+    throw error;
+  }
+};
+
+/**
+ * Actualiza la cantidad de un item del pedido
+ */
+export const updateTableOrderItem = async (itemId: number, quantity: number): Promise<void> => {
+  try {
+    await db.withTransactionAsync(async () => {
+      // Obtener el item
+      const item = await db.getFirstAsync<TableOrderItem>(
+        'SELECT * FROM table_order_items WHERE id = ?',
+        [itemId]
+      );
+
+      if (!item) {
+        throw new Error('Item no encontrado');
+      }
+
+      const newSubtotal = item.price * quantity;
+
+      await db.runAsync(
+        'UPDATE table_order_items SET quantity = ?, subtotal = ? WHERE id = ?',
+        [quantity, newSubtotal, itemId]
+      );
+
+      // Actualizar subtotal del pedido
+      await updateTableOrderSubtotal(item.table_order_id!);
+    });
+  } catch (error) {
+    console.error('Error al actualizar item:', error);
+    throw error;
+  }
+};
+
+/**
+ * Elimina un item de un pedido de mesa
+ */
+export const deleteTableOrderItem = async (itemId: number): Promise<void> => {
+  try {
+    await db.withTransactionAsync(async () => {
+      // Obtener el item para saber el table_order_id
+      const item = await db.getFirstAsync<TableOrderItem>(
+        'SELECT * FROM table_order_items WHERE id = ?',
+        [itemId]
+      );
+
+      if (!item) {
+        return;
+      }
+
+      await db.runAsync('DELETE FROM table_order_items WHERE id = ?', [itemId]);
+
+      // Actualizar subtotal del pedido
+      await updateTableOrderSubtotal(item.table_order_id!);
+    });
+  } catch (error) {
+    console.error('Error al eliminar item:', error);
+    throw error;
+  }
+};
+
+/**
+ * Actualiza el subtotal de un pedido de mesa
+ */
+const updateTableOrderSubtotal = async (tableOrderId: number): Promise<void> => {
+  try {
+    const result = await db.getFirstAsync<{ total: number }>(
+      'SELECT COALESCE(SUM(subtotal), 0) as total FROM table_order_items WHERE table_order_id = ?',
+      [tableOrderId]
+    );
+
+    await db.runAsync(
+      'UPDATE table_orders SET subtotal = ? WHERE id = ?',
+      [result?.total || 0, tableOrderId]
+    );
+  } catch (error) {
+    console.error('Error al actualizar subtotal:', error);
+    throw error;
+  }
+};
+
+/**
+ * Cierra un pedido de mesa (cambia status a closed)
+ */
+export const closeTableOrder = async (tableOrderId: number): Promise<void> => {
+  try {
+    await db.runAsync(
+      'UPDATE table_orders SET status = ? WHERE id = ?',
+      ['closed', tableOrderId]
+    );
+  } catch (error) {
+    console.error('Error al cerrar pedido de mesa:', error);
+    throw error;
+  }
+};
+
+/**
+ * Cancela un pedido de mesa y elimina sus items
+ */
+export const cancelTableOrder = async (tableOrderId: number): Promise<void> => {
+  try {
+    await db.withTransactionAsync(async () => {
+      // Eliminar items
+      await db.runAsync('DELETE FROM table_order_items WHERE table_order_id = ?', [tableOrderId]);
+      
+      // Cerrar el pedido
+      await db.runAsync(
+        'UPDATE table_orders SET status = ?, subtotal = 0 WHERE id = ?',
+        ['closed', tableOrderId]
+      );
+    });
+  } catch (error) {
+    console.error('Error al cancelar pedido de mesa:', error);
+    throw error;
+  }
+};
