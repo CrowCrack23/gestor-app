@@ -81,7 +81,7 @@ export const SettingsScreen: React.FC = () => {
           
           <View style={styles.infoBox}>
             <Text style={styles.infoTitle}>✅ Características:</Text>
-            <Text style={styles.infoText}>• 20 mesas disponibles por defecto</Text>
+            <Text style={styles.infoText}>• 4 mesas disponibles</Text>
             <Text style={styles.infoText}>• Múltiples pedidos simultáneos</Text>
             <Text style={styles.infoText}>• Agregar productos gradualmente</Text>
             <Text style={styles.infoText}>• Editar y eliminar items del pedido</Text>

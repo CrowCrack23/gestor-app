@@ -27,7 +27,7 @@ export const TablesScreen: React.FC = () => {
   const { currentUser } = useAuth();
   const [tables, setTables] = useState<TableStatus[]>([]);
   const [loading, setLoading] = useState(false);
-  const [maxTables, setMaxTables] = useState(20);
+  const [maxTables, setMaxTables] = useState(4);
 
   useFocusEffect(
     useCallback(() => {

@@ -443,6 +443,27 @@ export const getSalesByDateRange = async (startDate: string, endDate: string): P
 };
 
 /**
+ * Obtiene todas las ventas de una sesión de caja específica
+ */
+export const getSalesByCashSession = async (sessionId: number): Promise<Sale[]> => {
+  try {
+    const result = await db.getAllAsync<Sale>(
+      `SELECT s.*, u.username 
+       FROM sales s 
+       LEFT JOIN users u ON s.user_id = u.id 
+       WHERE s.cash_session_id = ? AND s.voided_at IS NULL
+       ORDER BY s.date DESC`,
+      [sessionId]
+    );
+    
+    return result;
+  } catch (error) {
+    console.error('Error al obtener ventas por sesión de caja:', error);
+    throw error;
+  }
+};
+
+/**
  * Obtiene el total de ventas de hoy
  */
 export const getTodaySalesTotal = async (): Promise<number> => {

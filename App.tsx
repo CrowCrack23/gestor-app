@@ -234,16 +234,17 @@ function AppContent() {
             tabBarInactiveTintColor: '#999',
             tabBarStyle: isAdmin ? { display: 'none' } : {
               paddingBottom: 10,
-              paddingTop: 8,
-              height: 65,
+              paddingTop: 10,
+              height: 60,
             },
             tabBarLabelStyle: {
               fontSize: 14,
               fontWeight: '600',
-              marginBottom: 5,
+              marginBottom: 0,
+              marginTop: 0,
             },
             tabBarIconStyle: {
-              marginTop: 5,
+              display: 'none',
             },
           }}
         >
@@ -252,9 +253,7 @@ function AppContent() {
             name="Ventas"
             component={SalesScreen}
             options={{
-              tabBarIcon: ({ color }) => (
-                <Text style={{ fontSize: 28, color }}>💰</Text>
-              ),
+              tabBarIcon: () => null,
               headerLeft: isAdmin ? () => (
                 <TouchableOpacity
                   onPress={() => setMenuVisible(true)}
@@ -283,9 +282,7 @@ function AppContent() {
           <Tab.Screen
             name="Mesas"
             options={{
-              tabBarIcon: ({ color }) => (
-                <Text style={{ fontSize: 28, color }}>🍽️</Text>
-              ),
+              tabBarIcon: () => null,
               headerShown: false,
             }}
           >
