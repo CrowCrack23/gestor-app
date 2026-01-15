@@ -8,6 +8,11 @@ import {
   Alert,
   ActivityIndicator,
   Modal,
+  Keyboard,
+  Platform,
+  KeyboardAvoidingView,
+  ScrollView,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import * as db from '../services/database';
 import { useAuth } from '../auth/AuthContext';
@@ -64,8 +69,18 @@ export const CashOpenScreen: React.FC<CashOpenScreenProps> = ({
       onRequestClose={onClose}
     >
       <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <View style={styles.header}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={80}
+          style={{ width: '100%' }}
+        >
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+            <ScrollView
+              contentContainerStyle={styles.scrollContainer}
+              keyboardShouldPersistTaps="handled"
+            >
+              <View style={styles.modalContent}>
+                <View style={styles.header}>
             <Text style={styles.icon}>💰</Text>
             <Text style={styles.title}>Apertura de Caja</Text>
             <Text style={styles.subtitle}>
@@ -79,6 +94,8 @@ export const CashOpenScreen: React.FC<CashOpenScreenProps> = ({
               style={styles.input}
               value={openingCash}
               onChangeText={setOpeningCash}
+              onSubmitEditing={() => Keyboard.dismiss()}
+              returnKeyType="done"
               placeholder="0.00"
               keyboardType="decimal-pad"
               placeholderTextColor="#999"
@@ -113,7 +130,10 @@ export const CashOpenScreen: React.FC<CashOpenScreenProps> = ({
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+              </View>
+            </ScrollView>
+          </TouchableWithoutFeedback>
+        </KeyboardAvoidingView>
       </View>
     </Modal>
   );
@@ -125,6 +145,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  scrollContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
   },
   modalContent: {
     backgroundColor: '#fff',

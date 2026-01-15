@@ -10,7 +10,7 @@ interface AuthContextType {
   hasUsers: boolean;
   login: (username: string, pin: string) => Promise<void>;
   logout: () => Promise<void>;
-  checkHasUsers: () => Promise<void>;
+  checkHasUsers: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);

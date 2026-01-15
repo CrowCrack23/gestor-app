@@ -9,6 +9,11 @@ import {
   Modal,
   TextInput,
   ActivityIndicator,
+  Keyboard,
+  Platform,
+  KeyboardAvoidingView,
+  ScrollView,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -304,6 +309,16 @@ export const UsersScreen: React.FC = () => {
         onRequestClose={closeModal}
       >
         <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={{ width: '100%' }}
+            keyboardVerticalOffset={80}
+          >
+            <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+              <ScrollView
+                contentContainerStyle={styles.scrollContainer}
+                keyboardShouldPersistTaps="handled"
+              >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Nuevo Usuario</Text>
@@ -318,6 +333,8 @@ export const UsersScreen: React.FC = () => {
                 style={styles.input}
                 value={formData.username}
                 onChangeText={text => setFormData({ ...formData, username: text })}
+                onSubmitEditing={() => Keyboard.dismiss()}
+                returnKeyType="next"
                 placeholder="Ej: vendedor1"
                 placeholderTextColor="#999"
                 autoCapitalize="none"
@@ -364,6 +381,8 @@ export const UsersScreen: React.FC = () => {
                 style={styles.input}
                 value={formData.pin}
                 onChangeText={text => setFormData({ ...formData, pin: text })}
+                onSubmitEditing={() => Keyboard.dismiss()}
+                returnKeyType="next"
                 placeholder="****"
                 placeholderTextColor="#999"
                 secureTextEntry
@@ -376,6 +395,8 @@ export const UsersScreen: React.FC = () => {
                 style={styles.input}
                 value={formData.confirmPin}
                 onChangeText={text => setFormData({ ...formData, confirmPin: text })}
+                onSubmitEditing={() => Keyboard.dismiss()}
+                returnKeyType="done"
                 placeholder="****"
                 placeholderTextColor="#999"
                 secureTextEntry
@@ -404,6 +425,9 @@ export const UsersScreen: React.FC = () => {
               </View>
             </View>
           </View>
+              </ScrollView>
+            </TouchableWithoutFeedback>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
     </SafeAreaView>
@@ -414,6 +438,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  scrollContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
   },
   header: {
     flexDirection: 'row',

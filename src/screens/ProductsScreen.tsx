@@ -9,6 +9,11 @@ import {
   Modal,
   TextInput,
   ActivityIndicator,
+  Keyboard,
+  Platform,
+  KeyboardAvoidingView,
+  ScrollView,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -210,6 +215,16 @@ export const ProductsScreen: React.FC = () => {
         onRequestClose={closeModal}
       >
         <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={{ width: '100%' }}
+            keyboardVerticalOffset={80}
+          >
+            <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+              <ScrollView
+                contentContainerStyle={styles.scrollContainer}
+                keyboardShouldPersistTaps="handled"
+              >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
@@ -226,6 +241,8 @@ export const ProductsScreen: React.FC = () => {
                 style={styles.input}
                 value={formData.name}
                 onChangeText={text => setFormData({ ...formData, name: text })}
+                onSubmitEditing={() => Keyboard.dismiss()}
+                returnKeyType="next"
                 placeholder="Ej: Producto 1"
                 placeholderTextColor="#999"
               />
@@ -235,6 +252,8 @@ export const ProductsScreen: React.FC = () => {
                 style={styles.input}
                 value={formData.price}
                 onChangeText={text => setFormData({ ...formData, price: text })}
+                onSubmitEditing={() => Keyboard.dismiss()}
+                returnKeyType="next"
                 placeholder="0.00"
                 keyboardType="decimal-pad"
                 placeholderTextColor="#999"
@@ -245,6 +264,8 @@ export const ProductsScreen: React.FC = () => {
                 style={styles.input}
                 value={formData.stock}
                 onChangeText={text => setFormData({ ...formData, stock: text })}
+                onSubmitEditing={() => Keyboard.dismiss()}
+                returnKeyType="done"
                 placeholder="0"
                 keyboardType="number-pad"
                 placeholderTextColor="#999"
@@ -271,6 +292,9 @@ export const ProductsScreen: React.FC = () => {
               </View>
             </View>
           </View>
+              </ScrollView>
+            </TouchableWithoutFeedback>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
     </SafeAreaView>
@@ -281,6 +305,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  scrollContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
   },
   header: {
     flexDirection: 'row',

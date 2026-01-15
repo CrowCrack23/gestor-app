@@ -8,6 +8,10 @@ import {
   ScrollView,
   TextInput,
   Alert,
+  Keyboard,
+  Platform,
+  KeyboardAvoidingView,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { SaleItem } from '../models/SaleItem';
 
@@ -44,6 +48,13 @@ export const HouseAccountModal: React.FC<HouseAccountModalProps> = ({
       onRequestClose={handleCancel}
     >
       <View style={styles.modalContainer}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ width: '100%', maxHeight: '90%' }}
+          keyboardVerticalOffset={80}
+        >
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+            <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ alignItems: 'center' }}>
         <View style={styles.modalContent}>
           {/* Header */}
           <View style={styles.header}>
@@ -79,6 +90,8 @@ export const HouseAccountModal: React.FC<HouseAccountModalProps> = ({
               placeholder="Ej: Café para el jefe, consumo personal..."
               value={notes}
               onChangeText={setNotes}
+              onSubmitEditing={() => Keyboard.dismiss()}
+              returnKeyType="done"
               multiline
               numberOfLines={3}
               maxLength={200}
@@ -101,7 +114,9 @@ export const HouseAccountModal: React.FC<HouseAccountModalProps> = ({
               <Text style={styles.confirmButtonText}>Confirmar Salida</Text>
             </TouchableOpacity>
           </View>
-        </View>
+            </ScrollView>
+          </TouchableWithoutFeedback>
+        </KeyboardAvoidingView>
       </View>
     </Modal>
   );

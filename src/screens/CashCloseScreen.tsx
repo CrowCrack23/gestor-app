@@ -9,6 +9,10 @@ import {
   ActivityIndicator,
   Modal,
   ScrollView,
+  Keyboard,
+  Platform,
+  KeyboardAvoidingView,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { CashSession } from '../models/CashSession';
 import * as db from '../services/database';
@@ -168,7 +172,13 @@ export const CashCloseScreen: React.FC<CashCloseScreenProps> = ({
       transparent={false}
       onRequestClose={onClose}
     >
-      <ScrollView style={styles.container}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+          <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
           <Text style={styles.icon}>🔒</Text>
           <Text style={styles.title}>Cierre de Caja</Text>
@@ -187,6 +197,8 @@ export const CashCloseScreen: React.FC<CashCloseScreenProps> = ({
               style={styles.input}
               value={declaredCash}
               onChangeText={setDeclaredCash}
+              onSubmitEditing={() => Keyboard.dismiss()}
+              returnKeyType="done"
               placeholder="0.00"
               keyboardType="decimal-pad"
               placeholderTextColor="#999"
@@ -203,6 +215,8 @@ export const CashCloseScreen: React.FC<CashCloseScreenProps> = ({
               style={styles.input}
               value={declaredCard}
               onChangeText={setDeclaredCard}
+              onSubmitEditing={() => Keyboard.dismiss()}
+              returnKeyType="done"
               placeholder="0.00"
               keyboardType="decimal-pad"
               placeholderTextColor="#999"
@@ -219,6 +233,8 @@ export const CashCloseScreen: React.FC<CashCloseScreenProps> = ({
               style={styles.input}
               value={declaredTransfer}
               onChangeText={setDeclaredTransfer}
+              onSubmitEditing={() => Keyboard.dismiss()}
+              returnKeyType="done"
               placeholder="0.00"
               keyboardType="decimal-pad"
               placeholderTextColor="#999"
@@ -235,6 +251,8 @@ export const CashCloseScreen: React.FC<CashCloseScreenProps> = ({
               style={[styles.input, styles.notesInput]}
               value={notes}
               onChangeText={setNotes}
+              onSubmitEditing={() => Keyboard.dismiss()}
+              returnKeyType="done"
               placeholder="Observaciones sobre el cierre..."
               placeholderTextColor="#999"
               multiline
@@ -265,7 +283,9 @@ export const CashCloseScreen: React.FC<CashCloseScreenProps> = ({
             )}
           </TouchableOpacity>
         </View>
-      </ScrollView>
+          </ScrollView>
+        </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
