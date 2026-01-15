@@ -167,7 +167,7 @@ export const cancelTable = async (tableOrderId: number): Promise<void> => {
 /**
  * Obtiene el estado de todas las mesas (configurado por número máximo)
  */
-export const getTablesStatus = async (maxTables: number = 20): Promise<Array<{
+export const getTablesStatus = async (maxTables: number = 4): Promise<Array<{
   tableNumber: number;
   isOccupied: boolean;
   tableOrder?: TableOrder;

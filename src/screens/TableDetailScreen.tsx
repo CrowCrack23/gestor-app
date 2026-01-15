@@ -232,30 +232,25 @@ export const TableDetailScreen: React.FC<Props> = ({ route }) => {
         cashSession.id
       );
 
-      Alert.alert(
-        'Cobro exitoso',
-        '¿Deseas generar el comprobante en PDF?',
-        [
-          {
-            text: 'No',
-            onPress: () => {
-              navigation.goBack();
-            },
-          },
-          {
-            text: 'Sí',
-            onPress: async () => {
-              try {
-                await printer.printReceipt(sale);
-              } catch (error) {
-                console.error(error);
-              } finally {
-                navigation.goBack();
-              }
-            },
-          },
-        ]
-      );
+      // Intentar imprimir automáticamente (o preguntar si falla)
+      try {
+        await printer.printReceipt(sale);
+        
+        // Si llegamos aquí, se imprimió o se generó PDF exitosamente
+        Alert.alert(
+          'Cobro exitoso', 
+          'Venta registrada correctamente',
+          [{ text: 'OK', onPress: () => navigation.goBack() }]
+        );
+      } catch (printError) {
+        console.error('Error impresión:', printError);
+        // Aun si falla impresión, la venta se hizo
+        Alert.alert(
+          'Cobro exitoso',
+          'Venta registrada, pero hubo un error al imprimir.',
+          [{ text: 'OK', onPress: () => navigation.goBack() }]
+        );
+      }
     } catch (error: any) {
       console.error('Error al cobrar:', error);
       Alert.alert('Error', error.message || 'No se pudo procesar el cobro');

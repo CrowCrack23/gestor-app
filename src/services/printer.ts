@@ -125,10 +125,39 @@ const generateReceiptHTML = (sale: Sale, businessName: string = 'Mi Negocio'): s
 };
 
 /**
- * Genera un PDF del comprobante y lo comparte
+ * Imprime un comprobante en la impresora térmica Bluetooth
  */
 export const printReceipt = async (sale: Sale, businessName?: string): Promise<void> => {
   try {
+    // Intentar primero con impresora Bluetooth si BLE está disponible
+    if (manager) {
+      try {
+        const connected = await isConnected();
+        
+        if (connected) {
+          const content = generateTicketContent(sale, businessName);
+          
+          // Enviar en chunks pequeños (algunas impresoras tienen límite de 20 bytes)
+          const chunkSize = 20;
+          for (let i = 0; i < content.length; i += chunkSize) {
+            const chunk = content.substring(i, i + chunkSize);
+            await sendData(chunk);
+            // Pequeña pausa entre chunks para evitar desbordamiento de buffer
+            await new Promise(resolve => setTimeout(resolve, 20)); 
+          }
+
+          console.log('Ticket impreso correctamente via Bluetooth');
+          return; // Si la impresión fue exitosa, salir
+        }
+      } catch (error: any) {
+        console.error('Error al imprimir en térmica:', error);
+        // Si falla la impresión Bluetooth, continuar con fallback a PDF
+      }
+    } else {
+      console.log('BLE no disponible, usando fallback a PDF');
+    }
+
+    // Fallback a PDF si no hay impresora conectada o falló
     const html = generateReceiptHTML(sale, businessName);
     
     const { uri } = await Print.printToFileAsync({ html });
@@ -208,25 +237,7 @@ export const printTest = async (): Promise<void> => {
   }
 };
 
-// Funciones mock para compatibilidad con la interfaz anterior
-export const scanDevices = async (): Promise<any[]> => {
-  // En Expo con Print, no necesitamos escanear dispositivos
-  // El sistema operativo maneja las impresoras disponibles
-  return [];
-};
+// No necesitamos las funciones mock porque ya están implementadas arriba con manejo condicional
+// Si BLE no está disponible, scanDevices retorna [] y connectPrinter lanza error
 
-export const connectPrinter = async (address: string): Promise<void> => {
-  // No necesario con expo-print
-  console.log('expo-print maneja la conexión automáticamente');
-};
-
-export const disconnectPrinter = async (): Promise<void> => {
-  // No necesario con expo-print
-  console.log('No hay conexión que desconectar con expo-print');
-};
-
-export const isConnected = async (): Promise<boolean> => {
-  // Con expo-print siempre está "conectado" porque usa el sistema del OS
-  return true;
-};
 
