@@ -23,5 +23,5 @@ export interface CashSession {
   closed_by_username?: string;
 }
 
-export type PaymentMethod = 'cash' | 'card' | 'transfer';
+export type PaymentMethod = 'cash' | 'transfer' | 'mixed';
 

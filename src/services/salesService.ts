@@ -15,7 +15,11 @@ export const processSale = async (
   cashSessionId?: number,
   tableOrderId?: number,
   saleType: 'normal' | 'house' = 'normal',
-  notes?: string
+  notes?: string,
+  cashAmount?: number,
+  transferAmount?: number,
+  receivedAmount?: number,
+  changeAmount?: number
 ): Promise<Sale> => {
   if (items.length === 0) {
     throw new Error('No hay productos en la venta');
@@ -29,6 +33,38 @@ export const processSale = async (
     total = 0;
   }
 
+  // Validar pagos mixtos
+  if (paymentMethod === 'mixed') {
+    if (!cashAmount || !transferAmount) {
+      throw new Error('Para pagos mixtos se requieren los montos de efectivo y transferencia');
+    }
+    
+    if (Math.abs((cashAmount + transferAmount) - total) > 0.01) {
+      throw new Error('La suma de efectivo y transferencia debe ser igual al total');
+    }
+    
+    if (cashAmount < 0 || transferAmount < 0) {
+      throw new Error('Los montos no pueden ser negativos');
+    }
+  }
+
+  // Validar pagos en efectivo con vuelto
+  if (paymentMethod === 'cash' && receivedAmount !== undefined) {
+    if (receivedAmount < total) {
+      throw new Error('El monto recibido es insuficiente');
+    }
+    
+    if (receivedAmount < 0) {
+      throw new Error('El monto recibido no puede ser negativo');
+    }
+    
+    // Validar que el vuelto calculado sea correcto
+    const calculatedChange = receivedAmount - total;
+    if (changeAmount !== undefined && Math.abs(changeAmount - calculatedChange) > 0.01) {
+      throw new Error('El vuelto calculado no coincide');
+    }
+  }
+
   // Crear la venta
   const sale: Sale = {
     total,
@@ -39,6 +75,12 @@ export const processSale = async (
     table_order_id: tableOrderId,
     sale_type: saleType,
     notes: notes,
+    // Agregar montos para pagos mixtos
+    cash_amount: paymentMethod === 'mixed' ? cashAmount : undefined,
+    transfer_amount: paymentMethod === 'mixed' ? transferAmount : undefined,
+    // Agregar campos para vuelto
+    received_amount: paymentMethod === 'cash' ? receivedAmount : undefined,
+    change_amount: paymentMethod === 'cash' ? changeAmount : undefined,
   };
 
   // Guardar en la base de datos

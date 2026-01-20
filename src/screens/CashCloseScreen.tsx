@@ -173,12 +173,14 @@ export const CashCloseScreen: React.FC<CashCloseScreenProps> = ({
       onRequestClose={onClose}
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1 }}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.container}
       >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-          <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
+        <ScrollView 
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
         <View style={styles.header}>
           <Text style={styles.icon}>🔒</Text>
           <Text style={styles.title}>Cierre de Caja</Text>
@@ -209,23 +211,6 @@ export const CashCloseScreen: React.FC<CashCloseScreenProps> = ({
             </Text>
           </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>💳 Tarjeta</Text>
-            <TextInput
-              style={styles.input}
-              value={declaredCard}
-              onChangeText={setDeclaredCard}
-              onSubmitEditing={() => Keyboard.dismiss()}
-              returnKeyType="done"
-              placeholder="0.00"
-              keyboardType="decimal-pad"
-              placeholderTextColor="#999"
-              editable={!loading}
-            />
-            <Text style={styles.expectedText}>
-              Esperado: {formatCurrency(sessionData.sales_card_total)}
-            </Text>
-          </View>
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>📱 Transferencia</Text>
@@ -283,8 +268,7 @@ export const CashCloseScreen: React.FC<CashCloseScreenProps> = ({
             )}
           </TouchableOpacity>
         </View>
-          </ScrollView>
-        </TouchableWithoutFeedback>
+        </ScrollView>
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -294,6 +278,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 40,
   },
   header: {
     alignItems: 'center',

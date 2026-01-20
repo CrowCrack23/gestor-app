@@ -214,88 +214,87 @@ export const ProductsScreen: React.FC = () => {
         transparent={true}
         onRequestClose={closeModal}
       >
-        <View style={styles.modalOverlay}>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={{ width: '100%' }}
-            keyboardVerticalOffset={80}
-          >
-            <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-              <ScrollView
-                contentContainerStyle={styles.scrollContainer}
-                keyboardShouldPersistTaps="handled"
-              >
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                {editingProduct ? 'Editar Producto' : 'Nuevo Producto'}
-              </Text>
-              <TouchableOpacity onPress={closeModal}>
-                <Text style={styles.closeButton}>✕</Text>
-              </TouchableOpacity>
-            </View>
+        <TouchableWithoutFeedback onPress={closeModal}>
+          <View style={styles.modalOverlay}>
+            <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+              style={styles.keyboardView}
+            >
+              <TouchableWithoutFeedback onPress={() => {}}>
+                <View style={styles.modalContent}>
+                  <View style={styles.modalHeader}>
+                    <Text style={styles.modalTitle}>
+                      {editingProduct ? 'Editar Producto' : 'Nuevo Producto'}
+                    </Text>
+                    <TouchableOpacity onPress={closeModal}>
+                      <Text style={styles.closeButton}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
 
-            <View style={styles.form}>
-              <Text style={styles.label}>Nombre del producto</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.name}
-                onChangeText={text => setFormData({ ...formData, name: text })}
-                onSubmitEditing={() => Keyboard.dismiss()}
-                returnKeyType="next"
-                placeholder="Ej: Producto 1"
-                placeholderTextColor="#999"
-              />
+                  <ScrollView 
+                    style={styles.formScroll}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}
+                  >
+                    <View style={styles.form}>
+                      <Text style={styles.label}>Nombre del producto</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={formData.name}
+                        onChangeText={text => setFormData({ ...formData, name: text })}
+                        returnKeyType="next"
+                        placeholder="Ej: Producto 1"
+                        placeholderTextColor="#999"
+                      />
 
-              <Text style={styles.label}>Precio</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.price}
-                onChangeText={text => setFormData({ ...formData, price: text })}
-                onSubmitEditing={() => Keyboard.dismiss()}
-                returnKeyType="next"
-                placeholder="0.00"
-                keyboardType="decimal-pad"
-                placeholderTextColor="#999"
-              />
+                      <Text style={styles.label}>Precio</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={formData.price}
+                        onChangeText={text => setFormData({ ...formData, price: text })}
+                        returnKeyType="next"
+                        placeholder="0.00"
+                        keyboardType="decimal-pad"
+                        placeholderTextColor="#999"
+                      />
 
-              <Text style={styles.label}>Stock inicial</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.stock}
-                onChangeText={text => setFormData({ ...formData, stock: text })}
-                onSubmitEditing={() => Keyboard.dismiss()}
-                returnKeyType="done"
-                placeholder="0"
-                keyboardType="number-pad"
-                placeholderTextColor="#999"
-              />
+                      <Text style={styles.label}>Stock inicial</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={formData.stock}
+                        onChangeText={text => setFormData({ ...formData, stock: text })}
+                        returnKeyType="done"
+                        placeholder="0"
+                        keyboardType="number-pad"
+                        placeholderTextColor="#999"
+                      />
 
-              <View style={styles.formButtons}>
-                <TouchableOpacity
-                  style={styles.cancelButton}
-                  onPress={closeModal}
-                >
-                  <Text style={styles.cancelButtonText}>Cancelar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.saveButton}
-                  onPress={handleSave}
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <ActivityIndicator color="#fff" />
-                  ) : (
-                    <Text style={styles.saveButtonText}>Guardar</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
+                      <View style={styles.formButtons}>
+                        <TouchableOpacity
+                          style={styles.cancelButton}
+                          onPress={closeModal}
+                        >
+                          <Text style={styles.cancelButtonText}>Cancelar</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.saveButton}
+                          onPress={handleSave}
+                          disabled={loading}
+                        >
+                          {loading ? (
+                            <ActivityIndicator color="#fff" />
+                          ) : (
+                            <Text style={styles.saveButtonText}>Guardar</Text>
+                          )}
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </ScrollView>
+                </View>
+              </TouchableWithoutFeedback>
+            </KeyboardAvoidingView>
           </View>
-              </ScrollView>
-            </TouchableWithoutFeedback>
-          </KeyboardAvoidingView>
-        </View>
+        </TouchableWithoutFeedback>
       </Modal>
     </SafeAreaView>
   );
@@ -306,11 +305,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
-  scrollContainer: {
-    flexGrow: 1,
-    justifyContent: 'center',
+  keyboardView: {
+    width: '100%',
     alignItems: 'center',
-    padding: 24,
+  },
+  formScroll: {
+    maxHeight: '100%',
   },
   header: {
     flexDirection: 'row',
@@ -414,7 +414,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     width: '90%',
     maxWidth: 500,
-    maxHeight: '80%',
+    maxHeight: '100%',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -436,13 +436,14 @@ const styles = StyleSheet.create({
   },
   form: {
     padding: 16,
+    paddingBottom: 8,
   },
   label: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: '#333',
-    marginBottom: 8,
-    marginTop: 12,
+    marginBottom: 6,
+    marginTop: 8,
   },
   input: {
     backgroundColor: '#f5f5f5',
@@ -455,7 +456,7 @@ const styles = StyleSheet.create({
   formButtons: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    marginTop: 24,
+    marginTop: 16,
     gap: 12,
   },
   cancelButton: {

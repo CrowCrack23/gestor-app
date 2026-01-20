@@ -9,7 +9,7 @@ import { TableOrderItem } from '../models/TableOrderItem';
 
 let db: SQLite.SQLiteDatabase;
 
-const CURRENT_DB_VERSION = 6;
+const CURRENT_DB_VERSION = 8;
 
 /**
  * Inicializa la base de datos y crea las tablas si no existen
@@ -244,6 +244,60 @@ export const initDatabase = async (): Promise<void> => {
       console.log('Migración v6 completada');
     }
 
+    // Migración v7: Soporte para pagos mixtos
+    if (currentVersion < 7) {
+      console.log('Aplicando migración v7: Pagos mixtos...');
+      
+      try {
+        await db.execAsync(`ALTER TABLE sales ADD COLUMN cash_amount REAL;`);
+        console.log('Columna cash_amount agregada a sales');
+      } catch (error: any) {
+        if (!error.message?.includes('duplicate column')) {
+          throw error;
+        }
+        console.log('Columna cash_amount ya existe en sales');
+      }
+
+      try {
+        await db.execAsync(`ALTER TABLE sales ADD COLUMN transfer_amount REAL;`);
+        console.log('Columna transfer_amount agregada a sales');
+      } catch (error: any) {
+        if (!error.message?.includes('duplicate column')) {
+          throw error;
+        }
+        console.log('Columna transfer_amount ya existe en sales');
+      }
+      
+      console.log('Migración v7 completada');
+    }
+
+    // Migración v8: Soporte para vuelto en pagos
+    if (currentVersion < 8) {
+      console.log('Aplicando migración v8: Funcionalidad de vuelto...');
+      
+      try {
+        await db.execAsync(`ALTER TABLE sales ADD COLUMN received_amount REAL;`);
+        console.log('Columna received_amount agregada a sales');
+      } catch (error: any) {
+        if (!error.message?.includes('duplicate column')) {
+          throw error;
+        }
+        console.log('Columna received_amount ya existe en sales');
+      }
+
+      try {
+        await db.execAsync(`ALTER TABLE sales ADD COLUMN change_amount REAL;`);
+        console.log('Columna change_amount agregada a sales');
+      } catch (error: any) {
+        if (!error.message?.includes('duplicate column')) {
+          throw error;
+        }
+        console.log('Columna change_amount ya existe en sales');
+      }
+      
+      console.log('Migración v8 completada');
+    }
+
     // Actualizar versión de la BD
     if (currentVersion < CURRENT_DB_VERSION) {
       await db.execAsync(`PRAGMA user_version = ${CURRENT_DB_VERSION}`);
@@ -388,7 +442,7 @@ export const createSale = async (sale: Sale, items: SaleItem[]): Promise<number>
     await db.withTransactionAsync(async () => {
       // Insertar venta
       const saleResult = await db.runAsync(
-        'INSERT INTO sales (total, date, user_id, cash_session_id, payment_method, sale_type, notes, table_order_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO sales (total, date, user_id, cash_session_id, payment_method, sale_type, notes, table_order_id, cash_amount, transfer_amount, received_amount, change_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [
           sale.total, 
           sale.date, 
@@ -397,7 +451,11 @@ export const createSale = async (sale: Sale, items: SaleItem[]): Promise<number>
           sale.payment_method || 'cash',
           sale.sale_type || 'normal',
           sale.notes || null,
-          sale.table_order_id || null
+          sale.table_order_id || null,
+          sale.cash_amount || null,
+          sale.transfer_amount || null,
+          sale.received_amount || null,
+          sale.change_amount || null
         ]
       );
       
@@ -534,23 +592,26 @@ export const getReportByPeriod = async (startDate: string, endDate: string): Pro
     );
 
     const cashResult = await db.getFirstAsync<{ total: number }>(
-      `SELECT COALESCE(SUM(total), 0) as total 
+      `SELECT COALESCE(
+         SUM(CASE 
+           WHEN payment_method = 'cash' THEN total 
+           WHEN payment_method = 'mixed' THEN cash_amount 
+           ELSE 0 
+         END), 0) as total 
        FROM sales 
-       WHERE date BETWEEN ? AND ? AND payment_method = 'cash' AND voided_at IS NULL AND (sale_type IS NULL OR sale_type = 'normal')`,
-      [startDate, endDate]
-    );
-
-    const cardResult = await db.getFirstAsync<{ total: number }>(
-      `SELECT COALESCE(SUM(total), 0) as total 
-       FROM sales 
-       WHERE date BETWEEN ? AND ? AND payment_method = 'card' AND voided_at IS NULL AND (sale_type IS NULL OR sale_type = 'normal')`,
+       WHERE date BETWEEN ? AND ? AND voided_at IS NULL AND (sale_type IS NULL OR sale_type = 'normal')`,
       [startDate, endDate]
     );
 
     const transferResult = await db.getFirstAsync<{ total: number }>(
-      `SELECT COALESCE(SUM(total), 0) as total 
+      `SELECT COALESCE(
+         SUM(CASE 
+           WHEN payment_method = 'transfer' THEN total 
+           WHEN payment_method = 'mixed' THEN transfer_amount 
+           ELSE 0 
+         END), 0) as total 
        FROM sales 
-       WHERE date BETWEEN ? AND ? AND payment_method = 'transfer' AND voided_at IS NULL AND (sale_type IS NULL OR sale_type = 'normal')`,
+       WHERE date BETWEEN ? AND ? AND voided_at IS NULL AND (sale_type IS NULL OR sale_type = 'normal')`,
       [startDate, endDate]
     );
 
@@ -558,7 +619,7 @@ export const getReportByPeriod = async (startDate: string, endDate: string): Pro
       totalSales: totalResult?.total || 0,
       salesCount: totalResult?.count || 0,
       cashTotal: cashResult?.total || 0,
-      cardTotal: cardResult?.total || 0,
+      cardTotal: 0, // Ya no se usa tarjeta
       transferTotal: transferResult?.total || 0,
     };
   } catch (error) {
@@ -820,23 +881,26 @@ export const closeCashSession = async (
     await db.withTransactionAsync(async () => {
       // Calcular totales de ventas por método
       const cashTotal = await db.getFirstAsync<{ total: number }>(
-        `SELECT COALESCE(SUM(total), 0) as total 
+        `SELECT COALESCE(
+           SUM(CASE 
+             WHEN payment_method = 'cash' THEN total 
+             WHEN payment_method = 'mixed' THEN cash_amount 
+             ELSE 0 
+           END), 0) as total 
          FROM sales 
-         WHERE cash_session_id = ? AND payment_method = 'cash'`,
-        [sessionId]
-      );
-
-      const cardTotal = await db.getFirstAsync<{ total: number }>(
-        `SELECT COALESCE(SUM(total), 0) as total 
-         FROM sales 
-         WHERE cash_session_id = ? AND payment_method = 'card'`,
+         WHERE cash_session_id = ?`,
         [sessionId]
       );
 
       const transferTotal = await db.getFirstAsync<{ total: number }>(
-        `SELECT COALESCE(SUM(total), 0) as total 
+        `SELECT COALESCE(
+           SUM(CASE 
+             WHEN payment_method = 'transfer' THEN total 
+             WHEN payment_method = 'mixed' THEN transfer_amount 
+             ELSE 0 
+           END), 0) as total 
          FROM sales 
-         WHERE cash_session_id = ? AND payment_method = 'transfer'`,
+         WHERE cash_session_id = ?`,
         [sessionId]
       );
 
@@ -857,10 +921,10 @@ export const closeCashSession = async (
           new Date().toISOString(),
           closedByUserId,
           declaredCash,
-          declaredCard,
+          0, // Ya no se usa tarjeta
           declaredTransfer,
           cashTotal?.total || 0,
-          cardTotal?.total || 0,
+          0, // Ya no se usa tarjeta
           transferTotal?.total || 0,
           notes || null,
           sessionId,

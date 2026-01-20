@@ -10,6 +10,12 @@ export interface Sale {
   cash_session_id?: number;
   table_order_id?: number; // Para trazabilidad de pedidos de mesa
   payment_method: PaymentMethod;
+  // Campos para pago mixto
+  cash_amount?: number; // Monto en efectivo (para pagos mixtos)
+  transfer_amount?: number; // Monto en transferencia (para pagos mixtos)
+  // Campos para vuelto
+  received_amount?: number; // Monto recibido del cliente
+  change_amount?: number; // Vuelto calculado
   sale_type?: 'normal' | 'house'; // Tipo de salida: normal (venta) o house (cuenta casa)
   notes?: string; // Notas/justificación para salidas de cuenta casa
   voided_at?: string;

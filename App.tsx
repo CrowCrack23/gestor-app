@@ -27,6 +27,7 @@ import { CashHistoryScreen } from './src/screens/CashHistoryScreen';
 import { ReportsScreen } from './src/screens/ReportsScreen';
 import { TablesScreen } from './src/screens/TablesScreen';
 import { TableDetailScreen } from './src/screens/TableDetailScreen';
+import PrinterSettingsScreen from './src/screens/PrinterSettingsScreen';
 import * as db from './src/services/database';
 
 const Tab = createBottomTabNavigator();
@@ -107,6 +108,7 @@ function HamburgerMenu({ visible, onClose, onNavigate, onLogout }: HamburgerMenu
     { id: 'Reportes', icon: '📊', label: 'Reportes' },
     { id: 'Cierres', icon: '💵', label: 'Cierres de Caja' },
     { id: 'Usuarios', icon: '👥', label: 'Gestión de Usuarios' },
+    { id: 'Impresora', icon: '🖨️', label: 'Impresora Térmica' },
     { id: 'Config', icon: '⚙️', label: 'Configuración' },
   ];
 
@@ -233,9 +235,9 @@ function AppContent() {
             tabBarActiveTintColor: '#2196F3',
             tabBarInactiveTintColor: '#999',
             tabBarStyle: isAdmin ? { display: 'none' } : {
-              paddingBottom: 10,
+              paddingBottom: 20,
               paddingTop: 10,
-              height: 60,
+              height: 100,
             },
             tabBarLabelStyle: {
               fontSize: 14,
@@ -357,6 +359,22 @@ function AppContent() {
                 component={UsersScreen}
                 options={{
                   tabBarButton: () => null,
+                  headerLeft: () => (
+                    <TouchableOpacity
+                      onPress={() => setMenuVisible(true)}
+                      style={styles.hamburgerButton}
+                    >
+                      <Text style={styles.hamburgerIcon}>☰</Text>
+                    </TouchableOpacity>
+                  ),
+                }}
+              />
+              <Tab.Screen
+                name="Impresora"
+                component={PrinterSettingsScreen}
+                options={{
+                  tabBarButton: () => null,
+                  title: 'Impresora Térmica',
                   headerLeft: () => (
                     <TouchableOpacity
                       onPress={() => setMenuVisible(true)}

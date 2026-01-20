@@ -24,6 +24,7 @@ import { formatCurrency, formatDate } from '../utils/formatters';
 import { useAuth } from '../auth/AuthContext';
 import { CashOpenScreen } from './CashOpenScreen';
 import { CashCloseScreen } from './CashCloseScreen';
+import { PaymentMethodModal } from '../components/PaymentMethodModal';
 
 export const SalesScreen: React.FC = () => {
   const { currentUser } = useAuth();
@@ -40,6 +41,7 @@ export const SalesScreen: React.FC = () => {
   const [showCartModal, setShowCartModal] = useState(false); // Modal del carrito
   const [showSalesHistoryModal, setShowSalesHistoryModal] = useState(false); // Modal de historial
   const [sessionSales, setSessionSales] = useState<Sale[]>([]); // Ventas de la sesión actual
+  const [showPaymentModal, setShowPaymentModal] = useState(false); // Modal de método de pago
 
   useFocusEffect(
     useCallback(() => {
@@ -223,20 +225,29 @@ export const SalesScreen: React.FC = () => {
       return;
     }
 
-    // Mostrar selector de método de pago antes de confirmar
-    Alert.alert(
-      'Método de Pago',
-      `Total: ${formatCurrency(calculateTotal())}\nSelecciona el método de pago:`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Efectivo', onPress: () => { setPaymentMethod('cash'); processSale(); } },
-        { text: 'Tarjeta', onPress: () => { setPaymentMethod('card'); processSale(); } },
-        { text: 'Transferencia', onPress: () => { setPaymentMethod('transfer'); processSale(); } },
-      ]
-    );
+    // Mostrar modal de método de pago
+    setShowPaymentModal(true);
   };
 
-  const processSale = async () => {
+  const handlePaymentConfirm = async (
+    method: PaymentMethod, 
+    cashAmount?: number, 
+    transferAmount?: number,
+    receivedAmount?: number,
+    changeAmount?: number
+  ) => {
+    setShowPaymentModal(false);
+    setPaymentMethod(method);
+    await processSale(method, cashAmount, transferAmount, receivedAmount, changeAmount);
+  };
+
+  const processSale = async (
+    method?: PaymentMethod, 
+    cashAmount?: number, 
+    transferAmount?: number,
+    receivedAmount?: number,
+    changeAmount?: number
+  ) => {
     try {
       setLoading(true);
 
@@ -250,7 +261,19 @@ export const SalesScreen: React.FC = () => {
       }
 
       // Procesar la venta
-      const sale = await salesService.processSale(cart, currentUser?.id, paymentMethod, cashSession?.id);
+      const sale = await salesService.processSale(
+        cart, 
+        currentUser?.id, 
+        method || paymentMethod, 
+        cashSession?.id,
+        undefined, // tableOrderId
+        'normal', // saleType
+        undefined, // notes
+        cashAmount,
+        transferAmount,
+        receivedAmount,
+        changeAmount
+      );
 
       // Venta exitosa - limpiar carrito y recargar
       setCart([]);
@@ -578,6 +601,14 @@ export const SalesScreen: React.FC = () => {
           </View>
         </SafeAreaView>
       </Modal>
+
+      {/* Modal de Método de Pago */}
+      <PaymentMethodModal
+        visible={showPaymentModal}
+        total={calculateTotal()}
+        onClose={() => setShowPaymentModal(false)}
+        onConfirm={handlePaymentConfirm}
+      />
     </SafeAreaView>
   );
 };
@@ -911,7 +942,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
-    paddingBottom: 16,
+    paddingBottom: 35,
     borderTopWidth: 2,
     borderTopColor: '#e0e0e0',
   },

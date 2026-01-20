@@ -190,7 +190,7 @@ export const UsersScreen: React.FC = () => {
         { text: 'Cancelar', style: 'cancel' },
         {
           text: 'Confirmar',
-          onPress: async (newPin) => {
+          onPress: async (newPin?: string) => {
             if (!newPin || newPin.length < 4) {
               Alert.alert('Error', 'El PIN debe tener al menos 4 dígitos');
               return;
@@ -283,7 +283,7 @@ export const UsersScreen: React.FC = () => {
           style={styles.addButton}
           onPress={openModal}
         >
-          <Text style={styles.addButtonText}>+ Crear Usuario</Text>
+          <Text style={styles.addButtonText}>+ Crear</Text>
         </TouchableOpacity>
       </View>
 
@@ -308,127 +308,126 @@ export const UsersScreen: React.FC = () => {
         transparent={true}
         onRequestClose={closeModal}
       >
-        <View style={styles.modalOverlay}>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={{ width: '100%' }}
-            keyboardVerticalOffset={80}
-          >
-            <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-              <ScrollView
-                contentContainerStyle={styles.scrollContainer}
-                keyboardShouldPersistTaps="handled"
-              >
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Nuevo Usuario</Text>
-              <TouchableOpacity onPress={closeModal}>
-                <Text style={styles.closeButton}>✕</Text>
-              </TouchableOpacity>
-            </View>
+        <TouchableWithoutFeedback onPress={closeModal}>
+          <View style={styles.modalOverlay}>
+            <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+              style={styles.keyboardView}
+            >
+              <TouchableWithoutFeedback onPress={() => {}}>
+                <View style={styles.modalContent}>
+                  <View style={styles.modalHeader}>
+                    <Text style={styles.modalTitle}>Nuevo Usuario</Text>
+                    <TouchableOpacity onPress={closeModal}>
+                      <Text style={styles.closeButton}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
 
-            <View style={styles.form}>
-              <Text style={styles.label}>Nombre de usuario</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.username}
-                onChangeText={text => setFormData({ ...formData, username: text })}
-                onSubmitEditing={() => Keyboard.dismiss()}
-                returnKeyType="next"
-                placeholder="Ej: vendedor1"
-                placeholderTextColor="#999"
-                autoCapitalize="none"
-              />
-
-              <Text style={styles.label}>Rol</Text>
-              <View style={styles.roleSelector}>
-                <TouchableOpacity
-                  style={[
-                    styles.roleOption,
-                    formData.role === 'seller' && styles.roleOptionActive,
-                  ]}
-                  onPress={() => setFormData({ ...formData, role: 'seller' })}
-                >
-                  <Text
-                    style={[
-                      styles.roleOptionText,
-                      formData.role === 'seller' && styles.roleOptionTextActive,
-                    ]}
+                  <ScrollView 
+                    style={styles.formScroll}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}
                   >
-                    💼 Vendedor
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.roleOption,
-                    formData.role === 'admin' && styles.roleOptionActive,
-                  ]}
-                  onPress={() => setFormData({ ...formData, role: 'admin' })}
-                >
-                  <Text
-                    style={[
-                      styles.roleOptionText,
-                      formData.role === 'admin' && styles.roleOptionTextActive,
-                    ]}
-                  >
-                    👑 Admin
-                  </Text>
-                </TouchableOpacity>
-              </View>
+                    <View style={styles.form}>
+                      <Text style={styles.label}>Nombre de usuario</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={formData.username}
+                        onChangeText={text => setFormData({ ...formData, username: text })}
+                        returnKeyType="next"
+                        placeholder="Ej: vendedor1"
+                        placeholderTextColor="#999"
+                        autoCapitalize="none"
+                      />
 
-              <Text style={styles.label}>PIN (mínimo 4 dígitos)</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.pin}
-                onChangeText={text => setFormData({ ...formData, pin: text })}
-                onSubmitEditing={() => Keyboard.dismiss()}
-                returnKeyType="next"
-                placeholder="****"
-                placeholderTextColor="#999"
-                secureTextEntry
-                keyboardType="number-pad"
-                maxLength={6}
-              />
+                      <Text style={styles.label}>Rol</Text>
+                      <View style={styles.roleSelector}>
+                        <TouchableOpacity
+                          style={[
+                            styles.roleOption,
+                            formData.role === 'seller' && styles.roleOptionActive,
+                          ]}
+                          onPress={() => setFormData({ ...formData, role: 'seller' })}
+                        >
+                          <Text
+                            style={[
+                              styles.roleOptionText,
+                              formData.role === 'seller' && styles.roleOptionTextActive,
+                            ]}
+                          >
+                            💼 Vendedor
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[
+                            styles.roleOption,
+                            formData.role === 'admin' && styles.roleOptionActive,
+                          ]}
+                          onPress={() => setFormData({ ...formData, role: 'admin' })}
+                        >
+                          <Text
+                            style={[
+                              styles.roleOptionText,
+                              formData.role === 'admin' && styles.roleOptionTextActive,
+                            ]}
+                          >
+                            👑 Admin
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
 
-              <Text style={styles.label}>Confirmar PIN</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.confirmPin}
-                onChangeText={text => setFormData({ ...formData, confirmPin: text })}
-                onSubmitEditing={() => Keyboard.dismiss()}
-                returnKeyType="done"
-                placeholder="****"
-                placeholderTextColor="#999"
-                secureTextEntry
-                keyboardType="number-pad"
-                maxLength={6}
-              />
+                      <Text style={styles.label}>PIN (mínimo 4 dígitos)</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={formData.pin}
+                        onChangeText={text => setFormData({ ...formData, pin: text })}
+                        returnKeyType="next"
+                        placeholder="****"
+                        placeholderTextColor="#999"
+                        secureTextEntry
+                        keyboardType="number-pad"
+                        maxLength={6}
+                      />
 
-              <View style={styles.formButtons}>
-                <TouchableOpacity
-                  style={styles.cancelButton}
-                  onPress={closeModal}
-                >
-                  <Text style={styles.cancelButtonText}>Cancelar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.saveButton}
-                  onPress={handleCreateUser}
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <ActivityIndicator color="#fff" />
-                  ) : (
-                    <Text style={styles.saveButtonText}>Crear</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
+                      <Text style={styles.label}>Confirmar PIN</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={formData.confirmPin}
+                        onChangeText={text => setFormData({ ...formData, confirmPin: text })}
+                        returnKeyType="done"
+                        placeholder="****"
+                        placeholderTextColor="#999"
+                        secureTextEntry
+                        keyboardType="number-pad"
+                        maxLength={6}
+                      />
+
+                      <View style={styles.formButtons}>
+                        <TouchableOpacity
+                          style={styles.cancelButton}
+                          onPress={closeModal}
+                        >
+                          <Text style={styles.cancelButtonText}>Cancelar</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.saveButton}
+                          onPress={handleCreateUser}
+                          disabled={loading}
+                        >
+                          {loading ? (
+                            <ActivityIndicator color="#fff" />
+                          ) : (
+                            <Text style={styles.saveButtonText}>Crear</Text>
+                          )}
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </ScrollView>
+                </View>
+              </TouchableWithoutFeedback>
+            </KeyboardAvoidingView>
           </View>
-              </ScrollView>
-            </TouchableWithoutFeedback>
-          </KeyboardAvoidingView>
-        </View>
+        </TouchableWithoutFeedback>
       </Modal>
     </SafeAreaView>
   );
@@ -439,11 +438,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
-  scrollContainer: {
-    flexGrow: 1,
-    justifyContent: 'center',
+  keyboardView: {
+    width: '100%',
     alignItems: 'center',
-    padding: 24,
+  },
+  formScroll: {
+    maxHeight: '100%',
   },
   header: {
     flexDirection: 'row',
@@ -602,7 +602,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     width: '90%',
     maxWidth: 500,
-    maxHeight: '80%',
+    maxHeight: '90%',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -624,13 +624,14 @@ const styles = StyleSheet.create({
   },
   form: {
     padding: 16,
+    paddingBottom: 8,
   },
   label: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: '#333',
-    marginBottom: 8,
-    marginTop: 12,
+    marginBottom: 6,
+    marginTop: 8,
   },
   input: {
     backgroundColor: '#f5f5f5',
@@ -667,7 +668,7 @@ const styles = StyleSheet.create({
   formButtons: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    marginTop: 24,
+    marginTop: 16,
     gap: 12,
   },
   cancelButton: {

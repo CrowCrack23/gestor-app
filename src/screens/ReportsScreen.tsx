@@ -163,10 +163,6 @@ export const ReportsScreen: React.FC = () => {
                 <Text style={styles.methodValue}>{formatCurrency(reportData.cashTotal)}</Text>
               </View>
               <View style={styles.methodRow}>
-                <Text style={styles.methodLabel}>💳 Tarjeta:</Text>
-                <Text style={styles.methodValue}>{formatCurrency(reportData.cardTotal)}</Text>
-              </View>
-              <View style={styles.methodRow}>
                 <Text style={styles.methodLabel}>📱 Transferencia:</Text>
                 <Text style={styles.methodValue}>{formatCurrency(reportData.transferTotal)}</Text>
               </View>

@@ -102,7 +102,11 @@ export const checkoutTable = async (
   tableOrderId: number,
   paymentMethod: PaymentMethod,
   userId?: number,
-  cashSessionId?: number
+  cashSessionId?: number,
+  cashAmount?: number,
+  transferAmount?: number,
+  receivedAmount?: number,
+  changeAmount?: number
 ): Promise<Sale> => {
   try {
     // Obtener el pedido con sus items
@@ -139,7 +143,13 @@ export const checkoutTable = async (
       userId,
       paymentMethod,
       cashSessionId,
-      tableOrderId
+      tableOrderId,
+      'normal', // saleType
+      undefined, // notes
+      cashAmount,
+      transferAmount,
+      receivedAmount,
+      changeAmount
     );
 
     // Cerrar el pedido de mesa
