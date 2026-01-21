@@ -232,15 +232,28 @@ export const initDatabase = async (): Promise<void> => {
     // Migración v6: Soporte para salidas de cuenta casa
     if (currentVersion < 6) {
       console.log('Aplicando migración v6: Cuenta casa...');
-      
-      await db.execAsync(`
-        ALTER TABLE sales ADD COLUMN sale_type TEXT DEFAULT 'normal';
-      `);
-      
-      await db.execAsync(`
-        ALTER TABLE sales ADD COLUMN notes TEXT;
-      `);
-      
+
+      // Agregar columnas a sales (si no existen)
+      try {
+        await db.execAsync(`ALTER TABLE sales ADD COLUMN sale_type TEXT DEFAULT 'normal';`);
+        console.log('Columna sale_type agregada a sales');
+      } catch (error: any) {
+        if (!error.message?.includes('duplicate column')) {
+          throw error;
+        }
+        console.log('Columna sale_type ya existe en sales');
+      }
+
+      try {
+        await db.execAsync(`ALTER TABLE sales ADD COLUMN notes TEXT;`);
+        console.log('Columna notes agregada a sales');
+      } catch (error: any) {
+        if (!error.message?.includes('duplicate column')) {
+          throw error;
+        }
+        console.log('Columna notes ya existe en sales');
+      }
+
       console.log('Migración v6 completada');
     }
 
@@ -517,6 +530,35 @@ export const getSalesByCashSession = async (sessionId: number): Promise<Sale[]> 
     return result;
   } catch (error) {
     console.error('Error al obtener ventas por sesión de caja:', error);
+    throw error;
+  }
+};
+
+/**
+ * Obtiene los productos vendidos durante una sesión de caja específica
+ */
+export const getProductsSoldByCashSession = async (sessionId: number): Promise<any[]> => {
+  try {
+    const result = await db.getAllAsync(
+      `SELECT 
+        p.id as product_id,
+        p.name as product_name,
+        p.stock as current_stock,
+        SUM(si.quantity) as quantity_sold,
+        SUM(si.subtotal) as total_amount,
+        AVG(si.price) as average_price
+       FROM sale_items si
+       JOIN products p ON si.product_id = p.id
+       JOIN sales s ON si.sale_id = s.id
+       WHERE s.cash_session_id = ? AND s.voided_at IS NULL
+       GROUP BY si.product_id, p.name, p.stock
+       ORDER BY quantity_sold DESC`,
+      [sessionId]
+    );
+    
+    return result;
+  } catch (error) {
+    console.error('Error al obtener productos vendidos por sesión de caja:', error);
     throw error;
   }
 };

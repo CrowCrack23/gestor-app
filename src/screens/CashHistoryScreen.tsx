@@ -19,11 +19,22 @@ import { useAuth } from '../auth/AuthContext';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 
+interface ProductSalesData {
+  product_id: number;
+  product_name: string;
+  current_stock: number;
+  quantity_sold: number;
+  total_amount: number;
+  average_price: number;
+}
+
 export const CashHistoryScreen: React.FC = () => {
   const [sessions, setSessions] = useState<CashSession[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedSession, setSelectedSession] = useState<CashSession | null>(null);
   const [showDetail, setShowDetail] = useState(false);
+  const [productsSold, setProductsSold] = useState<ProductSalesData[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
   const { currentUser } = useAuth();
 
   useFocusEffect(
@@ -45,9 +56,23 @@ export const CashHistoryScreen: React.FC = () => {
     }
   };
 
-  const handleViewDetail = (session: CashSession) => {
+  const handleViewDetail = async (session: CashSession) => {
     setSelectedSession(session);
     setShowDetail(true);
+    
+    // Cargar productos vendidos durante la sesión
+    if (session.id) {
+      try {
+        setLoadingProducts(true);
+        const products = await db.getProductsSoldByCashSession(session.id);
+        setProductsSold(products);
+      } catch (error) {
+        console.error('Error al cargar productos vendidos:', error);
+        setProductsSold([]);
+      } finally {
+        setLoadingProducts(false);
+      }
+    }
   };
 
   const generatePDF = async (session: CashSession) => {
@@ -56,6 +81,40 @@ export const CashHistoryScreen: React.FC = () => {
       const diffCard = (session.declared_card || 0) - session.sales_card_total;
       const diffTransfer = (session.declared_transfer || 0) - session.sales_transfer_total;
       const diffTotal = diffCash + diffCard + diffTransfer;
+
+      // Cargar productos vendidos para el PDF
+      let productsHtml = '';
+      if (session.id) {
+        try {
+          const products = await db.getProductsSoldByCashSession(session.id);
+          if (products.length > 0) {
+            const totalQuantity = products.reduce((sum, p) => sum + p.quantity_sold, 0);
+            productsHtml = `
+              <div class="section">
+                <h2>Detalle de Productos Vendidos</h2>
+                <table>
+                  <tr><th>Producto</th><th>Stock Actual</th><th>Cantidad Vendida</th><th>Total</th></tr>
+                  ${products.map(product => `
+                    <tr>
+                      <td>${product.product_name}</td>
+                      <td>${product.current_stock}</td>
+                      <td>${product.quantity_sold}</td>
+                      <td>${formatCurrency(product.total_amount)}</td>
+                    </tr>
+                  `).join('')}
+                  <tr class="total-row">
+                    <td colspan="2">TOTAL PRODUCTOS</td>
+                    <td>${totalQuantity} unidades</td>
+                    <td>${formatCurrency(products.reduce((sum, p) => sum + p.total_amount, 0))}</td>
+                  </tr>
+                </table>
+              </div>
+            `;
+          }
+        } catch (error) {
+          console.error('Error al cargar productos para PDF:', error);
+        }
+      }
 
       const html = `
         <!DOCTYPE html>
@@ -119,6 +178,8 @@ export const CashHistoryScreen: React.FC = () => {
               <tr class="total-row"><td>TOTAL</td><td class="${diffTotal >= 0 ? 'diff-positive' : 'diff-negative'}">${diffTotal >= 0 ? '+' : ''}${formatCurrency(diffTotal)}</td></tr>
             </table>
           </div>
+
+          ${productsHtml}
 
           ${session.notes ? `<div class="section"><h2>Notas</h2><p>${session.notes}</p></div>` : ''}
         </body>
@@ -352,6 +413,39 @@ export const CashHistoryScreen: React.FC = () => {
                   </View>
                 </>
               )}
+
+              {/* Sección de Productos Vendidos */}
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Productos Vendidos</Text>
+                {loadingProducts ? (
+                  <ActivityIndicator size="small" color="#2196F3" style={{ marginTop: 16 }} />
+                ) : productsSold.length > 0 ? (
+                  <View style={styles.summaryCard}>
+                    <View style={[styles.summaryRow, styles.tableHeader]}>
+                      <Text style={styles.tableHeaderText}>Producto</Text>
+                      <Text style={styles.tableHeaderText}>Stock</Text>
+                      <Text style={styles.tableHeaderText}>Vendido</Text>
+                      <Text style={styles.tableHeaderText}>Total</Text>
+                    </View>
+                    {productsSold.map((product, index) => (
+                      <View key={product.product_id} style={[styles.summaryRow, styles.tableRow]}>
+                        <Text style={styles.productName} numberOfLines={2}>{product.product_name}</Text>
+                        <Text style={styles.tableCell}>{product.current_stock}</Text>
+                        <Text style={styles.tableCell}>{product.quantity_sold}</Text>
+                        <Text style={styles.tableCell}>{formatCurrency(product.total_amount)}</Text>
+                      </View>
+                    ))}
+                    <View style={[styles.summaryRow, styles.totalRow]}>
+                      <Text style={styles.totalLabel}>TOTAL PRODUCTOS:</Text>
+                      <Text style={styles.totalValue}>
+                        {productsSold.reduce((sum, p) => sum + p.quantity_sold, 0)} unidades
+                      </Text>
+                    </View>
+                  </View>
+                ) : (
+                  <Text style={styles.emptyProductsText}>No se vendieron productos en esta sesión</Text>
+                )}
+              </View>
 
               {selectedSession.notes && (
                 <View style={styles.section}>
@@ -615,6 +709,42 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  tableHeader: {
+    backgroundColor: '#f0f0f0',
+    paddingVertical: 12,
+    borderBottomWidth: 2,
+    borderBottomColor: '#ddd',
+  },
+  tableHeaderText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#333',
+    flex: 1,
+    textAlign: 'center',
+  },
+  tableRow: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+    paddingVertical: 10,
+  },
+  productName: {
+    fontSize: 14,
+    color: '#333',
+    flex: 2,
+    marginRight: 8,
+  },
+  tableCell: {
+    fontSize: 14,
+    color: '#666',
+    flex: 1,
+    textAlign: 'center',
+  },
+  emptyProductsText: {
+    textAlign: 'center',
+    color: '#999',
+    fontStyle: 'italic',
+    marginTop: 16,
   },
 });
 

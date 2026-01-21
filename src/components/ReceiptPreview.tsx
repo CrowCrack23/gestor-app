@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { Sale } from '../models/Sale';
 import { formatCurrency, formatDate } from '../utils/formatters';
+import { BUSINESS_CONFIG } from '../constants/business';
 
 interface ReceiptPreviewProps {
   sale: Sale;
@@ -10,7 +11,7 @@ interface ReceiptPreviewProps {
 
 export const ReceiptPreview: React.FC<ReceiptPreviewProps> = ({
   sale,
-  businessName = 'Mi Negocio',
+  businessName = BUSINESS_CONFIG.name,
 }) => {
   return (
     <ScrollView style={styles.container}>

@@ -101,8 +101,6 @@ interface HamburgerMenuProps {
 
 function HamburgerMenu({ visible, onClose, onNavigate, onLogout }: HamburgerMenuProps) {
   const menuItems = [
-    { id: 'Ventas', icon: '💰', label: 'Ventas' },
-    { id: 'Mesas', icon: '🍽️', label: 'Mesas' },
     { id: 'Productos', icon: '📦', label: 'Productos' },
     { id: 'Historial', icon: '📋', label: 'Historial de Ventas' },
     { id: 'Reportes', icon: '📊', label: 'Reportes' },
@@ -223,6 +221,7 @@ function AppContent() {
     <>
       <NavigationContainer ref={(ref) => setNavigationRef(ref)}>
         <Tab.Navigator
+          initialRouteName={isAdmin ? 'Productos' : 'Ventas'}
           screenOptions={{
             headerStyle: {
               backgroundColor: '#2196F3',
@@ -250,46 +249,39 @@ function AppContent() {
             },
           }}
         >
-          {/* Tab Ventas: disponible para todos */}
-          <Tab.Screen
-            name="Ventas"
-            component={SalesScreen}
-            options={{
-              tabBarIcon: () => null,
-              headerLeft: isAdmin ? () => (
-                <TouchableOpacity
-                  onPress={() => setMenuVisible(true)}
-                  style={styles.hamburgerButton}
-                >
-                  <Text style={styles.hamburgerIcon}>☰</Text>
-                </TouchableOpacity>
-              ) : undefined,
-              headerRight: () => (
-                <View style={styles.headerRight}>
-                  <Text style={styles.usernameText}>{currentUser.username}</Text>
-                  {isSeller && (
-                    <TouchableOpacity
-                      onPress={handleLogout}
-                      style={styles.logoutButton}
-                    >
-                      <Text style={styles.logoutText}>Salir</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              ),
-            }}
-          />
+          {/* Tabs solo para vendedores */}
+          {isSeller && (
+            <>
+              <Tab.Screen
+                name="Ventas"
+                component={SalesScreen}
+                options={{
+                  tabBarIcon: () => null,
+                  headerRight: () => (
+                    <View style={styles.headerRight}>
+                      <Text style={styles.usernameText}>{currentUser.username}</Text>
+                      <TouchableOpacity
+                        onPress={handleLogout}
+                        style={styles.logoutButton}
+                      >
+                        <Text style={styles.logoutText}>Salir</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ),
+                }}
+              />
 
-          {/* Tab Mesas: disponible para todos */}
-          <Tab.Screen
-            name="Mesas"
-            options={{
-              tabBarIcon: () => null,
-              headerShown: false,
-            }}
-          >
-            {() => <TablesStackWithProps isAdmin={isAdmin} onMenuPress={() => setMenuVisible(true)} />}
-          </Tab.Screen>
+              <Tab.Screen
+                name="Mesas"
+                options={{
+                  tabBarIcon: () => null,
+                  headerShown: false,
+                }}
+              >
+                {() => <TablesStackWithProps isAdmin={false} onMenuPress={() => {}} />}
+              </Tab.Screen>
+            </>
+          )}
 
           {/* Pantallas adicionales solo para admin (ocultas de tabs, accesibles desde menú) */}
           {isAdmin && (

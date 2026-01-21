@@ -3,6 +3,7 @@ import * as Sharing from 'expo-sharing';
 import { Platform, PermissionsAndroid } from 'react-native';
 import { Sale } from '../models/Sale';
 import { formatCurrency, formatDate } from '../utils/formatters';
+import { BUSINESS_CONFIG } from '../constants/business';
 
 // Importar react-native-thermal-printer
 // Esta librería solo funciona en builds nativos (EAS Build o expo run:android)
@@ -151,7 +152,7 @@ export const isConnected = (): boolean => {
 /**
  * Genera el contenido del ticket en formato de la librería
  */
-const generateTicketContent = (sale: Sale, businessName: string = 'Mi Negocio'): string => {
+const generateTicketContent = (sale: Sale, businessName: string = BUSINESS_CONFIG.name): string => {
   let content = '';
   
   // Encabezado centrado y en negrita
@@ -197,7 +198,7 @@ const generateTicketContent = (sale: Sale, businessName: string = 'Mi Negocio'):
   
   // Footer
   content += '[C]Gracias por su compra!\n';
-  content += '[C]App Gestor Ventas\n';
+  content += '[C]Selfish Group\n';
   content += '[L]\n';
   content += '[L]\n';
   content += '[L]\n';
@@ -292,7 +293,7 @@ export const printReceipt = async (sale: Sale, businessName?: string): Promise<v
 /**
  * Genera el HTML del comprobante (fallback para PDF)
  */
-const generateReceiptHTML = (sale: Sale, businessName: string = 'Mi Negocio'): string => {
+const generateReceiptHTML = (sale: Sale, businessName: string = BUSINESS_CONFIG.name): string => {
   const itemsHTML = sale.items?.map(item => `
     <tr>
       <td style="padding: 8px; border-bottom: 1px solid #ddd;">${item.product_name}</td>
