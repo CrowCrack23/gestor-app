@@ -340,6 +340,22 @@ export const getAllProducts = async (): Promise<Product[]> => {
 };
 
 /**
+ * Busca productos por nombre
+ */
+export const searchProducts = async (searchTerm: string): Promise<Product[]> => {
+  try {
+    const result = await db.getAllAsync<Product>(
+      'SELECT * FROM products WHERE name LIKE ? ORDER BY name ASC',
+      [`%${searchTerm}%`]
+    );
+    return result;
+  } catch (error) {
+    console.error('Error al buscar productos:', error);
+    throw error;
+  }
+};
+
+/**
  * Obtiene un producto por ID
  */
 export const getProductById = async (id: number): Promise<Product | null> => {
@@ -858,6 +874,33 @@ export const updateUserPin = async (userId: number, pinSalt: string, pinHash: st
     );
   } catch (error) {
     console.error('Error al actualizar PIN:', error);
+    throw error;
+  }
+};
+
+/**
+ * Actualiza la información de un usuario (username y role)
+ */
+export const updateUser = async (userId: number, username: string, role: 'admin' | 'seller'): Promise<void> => {
+  try {
+    await db.runAsync(
+      'UPDATE users SET username = ?, role = ? WHERE id = ?',
+      [username, role, userId]
+    );
+  } catch (error) {
+    console.error('Error al actualizar usuario:', error);
+    throw error;
+  }
+};
+
+/**
+ * Elimina un usuario del sistema
+ */
+export const deleteUser = async (userId: number): Promise<void> => {
+  try {
+    await db.runAsync('DELETE FROM users WHERE id = ?', [userId]);
+  } catch (error) {
+    console.error('Error al eliminar usuario:', error);
     throw error;
   }
 };

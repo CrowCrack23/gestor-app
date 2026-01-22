@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -33,11 +33,21 @@ export const CashCloseScreen: React.FC<CashCloseScreenProps> = ({
   onSuccess,
 }) => {
   const [declaredCash, setDeclaredCash] = useState('');
-  const [declaredCard, setDeclaredCard] = useState('');
   const [declaredTransfer, setDeclaredTransfer] = useState('');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const [sessionData, setSessionData] = useState<CashSession | null>(null);
+  const [billCounts, setBillCounts] = useState<Record<number, string>>({
+    1: '0',
+    5: '0',
+    10: '0',
+    20: '0',
+    50: '0',
+    100: '0',
+    200: '0',
+    500: '0',
+    1000: '0',
+  });
   const { currentUser } = useAuth();
 
   useEffect(() => {
@@ -61,16 +71,10 @@ export const CashCloseScreen: React.FC<CashCloseScreenProps> = ({
 
   const handleCloseCash = async () => {
     const cash = parseFloat(declaredCash);
-    const card = parseFloat(declaredCard);
     const transfer = parseFloat(declaredTransfer);
 
     if (isNaN(cash) || cash < 0) {
       Alert.alert('Error', 'Ingresa un monto válido de efectivo');
-      return;
-    }
-
-    if (isNaN(card) || card < 0) {
-      Alert.alert('Error', 'Ingresa un monto válido de tarjeta');
       return;
     }
 
@@ -81,7 +85,7 @@ export const CashCloseScreen: React.FC<CashCloseScreenProps> = ({
 
     Alert.alert(
       'Confirmar Cierre',
-      `¿Estás seguro de cerrar la caja con estos montos?\n\nEfectivo: ${formatCurrency(cash)}\nTarjeta: ${formatCurrency(card)}\nTransferencia: ${formatCurrency(transfer)}`,
+      `¿Estás seguro de cerrar la caja con estos montos?\n\nEfectivo: ${formatCurrency(cash)}\nTransferencia: ${formatCurrency(transfer)}`,
       [
         { text: 'Cancelar', style: 'cancel' },
         { 
@@ -94,7 +98,7 @@ export const CashCloseScreen: React.FC<CashCloseScreenProps> = ({
               await db.closeCashSession(
                 session!.id!,
                 cash,
-                card,
+                0, // card (ya no se usa, pero la función aún lo requiere)
                 transfer,
                 currentUser!.id!,
                 notes.trim() || undefined
@@ -105,26 +109,22 @@ export const CashCloseScreen: React.FC<CashCloseScreenProps> = ({
               
               // Calcular diferencias finales
               const finalDiffCash = cash - (sessionData!.opening_cash + closedSession!.sales_cash_total);
-              const finalDiffCard = card - closedSession!.sales_card_total;
               const finalDiffTransfer = transfer - closedSession!.sales_transfer_total;
-              const finalDiffTotal = finalDiffCash + finalDiffCard + finalDiffTransfer;
+              const finalDiffTotal = finalDiffCash + finalDiffTransfer;
               
               // Crear resumen detallado
               let summary = '📊 RESUMEN DE CIERRE\n\n';
               summary += '💰 VENTAS DEL TURNO:\n';
               summary += `  Efectivo: ${formatCurrency(closedSession!.sales_cash_total)}\n`;
-              summary += `  Tarjeta: ${formatCurrency(closedSession!.sales_card_total)}\n`;
               summary += `  Transferencia: ${formatCurrency(closedSession!.sales_transfer_total)}\n`;
-              summary += `  TOTAL: ${formatCurrency(closedSession!.sales_cash_total + closedSession!.sales_card_total + closedSession!.sales_transfer_total)}\n\n`;
+              summary += `  TOTAL: ${formatCurrency(closedSession!.sales_cash_total + closedSession!.sales_transfer_total)}\n\n`;
               
               summary += '📝 DECLARADO:\n';
               summary += `  Efectivo: ${formatCurrency(cash)}\n`;
-              summary += `  Tarjeta: ${formatCurrency(card)}\n`;
               summary += `  Transferencia: ${formatCurrency(transfer)}\n\n`;
               
               summary += '📈 DIFERENCIAS:\n';
               summary += `  Efectivo: ${finalDiffCash >= 0 ? '+' : ''}${formatCurrency(finalDiffCash)}\n`;
-              summary += `  Tarjeta: ${finalDiffCard >= 0 ? '+' : ''}${formatCurrency(finalDiffCard)}\n`;
               summary += `  Transferencia: ${finalDiffTransfer >= 0 ? '+' : ''}${formatCurrency(finalDiffTransfer)}\n`;
               summary += `  ━━━━━━━━━━━━━━\n`;
               summary += `  TOTAL: ${finalDiffTotal >= 0 ? '+' : ''}${formatCurrency(finalDiffTotal)}`;
@@ -156,10 +156,57 @@ export const CashCloseScreen: React.FC<CashCloseScreenProps> = ({
 
   const resetForm = () => {
     setDeclaredCash('');
-    setDeclaredCard('');
     setDeclaredTransfer('');
     setNotes('');
+    setBillCounts({
+      1: '0',
+      5: '0',
+      10: '0',
+      20: '0',
+      50: '0',
+      100: '0',
+      200: '0',
+      500: '0',
+      1000: '0',
+    });
   };
+
+  const billTotal = useMemo(() => {
+    return Object.entries(billCounts).reduce((sum, [denom, count]) => {
+      const qty = parseInt(count, 10);
+      if (isNaN(qty) || qty < 0) {
+        return sum;
+      }
+      return sum + Number(denom) * qty;
+    }, 0);
+  }, [billCounts]);
+
+  const handleBillCountChange = (denomination: number, value: string) => {
+    const normalized = value.replace(/[^\d]/g, '');
+    setBillCounts(prev => ({
+      ...prev,
+      [denomination]: normalized,
+    }));
+  };
+
+  const clearBillCounter = () => {
+    setBillCounts({
+      1: '0',
+      5: '0',
+      10: '0',
+      20: '0',
+      50: '0',
+      100: '0',
+      200: '0',
+      500: '0',
+      1000: '0',
+    });
+    setDeclaredCash('0');
+  };
+
+  useEffect(() => {
+    setDeclaredCash(billTotal.toString());
+  }, [billTotal]);
 
   if (!session || !sessionData) {
     return null;
@@ -181,36 +228,38 @@ export const CashCloseScreen: React.FC<CashCloseScreenProps> = ({
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
-        <View style={styles.header}>
-          <Text style={styles.icon}>🔒</Text>
-          <Text style={styles.title}>Cierre de Caja</Text>
-          <Text style={styles.subtitle}>
-            Cuenta y declara los montos recibidos en tu turno
-          </Text>
-        </View>
-
-        {/* Declaración */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>💰 Declarar Montos Recibidos</Text>
-          
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>💵 Efectivo (incluye fondo inicial: {formatCurrency(sessionData.opening_cash)})</Text>
-            <TextInput
-              style={styles.input}
-              value={declaredCash}
-              onChangeText={setDeclaredCash}
-              onSubmitEditing={() => Keyboard.dismiss()}
-              returnKeyType="done"
-              placeholder="0.00"
-              keyboardType="decimal-pad"
-              placeholderTextColor="#999"
-              editable={!loading}
-            />
-            <Text style={styles.expectedText}>
-              Esperado: {formatCurrency(sessionData.opening_cash + sessionData.sales_cash_total)}
+          <View style={styles.billCounter}>
+            <View style={styles.billCounterHeader}>
+              <Text style={styles.billCounterTitle}>Contador de billetes</Text>
+              <TouchableOpacity
+                style={styles.billCounterClear}
+                onPress={clearBillCounter}
+                disabled={loading}
+              >
+                <Text style={styles.billCounterClearText}>Limpiar</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.billGrid}>
+              {[1, 5, 10, 20, 50, 100, 200, 500, 1000].map(denom => (
+                <View key={denom} style={styles.billRow}>
+                  <Text style={styles.billLabel}>${denom}</Text>
+                  <TextInput
+                    style={styles.billInput}
+                    value={billCounts[denom] ?? ''}
+                    onChangeText={value => handleBillCountChange(denom, value)}
+                    keyboardType="number-pad"
+                    placeholder="0"
+                    placeholderTextColor="#999"
+                    editable={!loading}
+                  />
+                </View>
+              ))}
+            </View>
+            <Text style={styles.billCounterTotal}>
+              Total: {formatCurrency(billTotal)}
             </Text>
           </View>
-
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>📱 Transferencia</Text>
@@ -378,6 +427,74 @@ const styles = StyleSheet.create({
     color: '#999',
     marginTop: 4,
     fontStyle: 'italic',
+  },
+  billCounter: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    marginBottom: 16,
+  },
+  billCounterHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  billCounterTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  billCounterClear: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    backgroundColor: '#f0f0f0',
+  },
+  billCounterClearText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666',
+  },
+  billCounterHint: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 10,
+  },
+  billCounterTotal: {
+    marginTop: 12,
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    textAlign: 'right',
+  },
+  billGrid: {
+    gap: 8,
+  },
+  billRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  billLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    width: 60,
+  },
+  billInput: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    fontSize: 14,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    textAlign: 'right',
+    color: '#333',
   },
   diffValue: {
     fontSize: 16,

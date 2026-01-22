@@ -23,6 +23,8 @@ import { formatCurrency } from '../utils/formatters';
 
 export const ProductsScreen: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -43,12 +45,30 @@ export const ProductsScreen: React.FC = () => {
       setLoading(true);
       const allProducts = await db.getAllProducts();
       setProducts(allProducts);
+      setFilteredProducts(allProducts);
     } catch (error) {
       Alert.alert('Error', 'No se pudieron cargar los productos');
       console.error(error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSearch = (text: string) => {
+    setSearchTerm(text);
+    if (text.trim() === '') {
+      setFilteredProducts(products);
+    } else {
+      const filtered = products.filter(product =>
+        product.name.toLowerCase().includes(text.toLowerCase())
+      );
+      setFilteredProducts(filtered);
+    }
+  };
+
+  const clearSearch = () => {
+    setSearchTerm('');
+    setFilteredProducts(products);
   };
 
   const openModal = (product?: Product) => {
@@ -191,17 +211,40 @@ export const ProductsScreen: React.FC = () => {
         </TouchableOpacity>
       </View>
 
-      {loading && products.length === 0 ? (
+      {/* Buscador */}
+      <View style={styles.searchContainer}>
+        <TextInput
+          style={styles.searchInput}
+          value={searchTerm}
+          onChangeText={handleSearch}
+          placeholder="Buscar productos..."
+          placeholderTextColor="#999"
+          returnKeyType="search"
+        />
+        {searchTerm.length > 0 && (
+          <TouchableOpacity 
+            style={styles.clearButton}
+            onPress={clearSearch}
+          >
+            <Text style={styles.clearButtonText}>✕</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {loading && filteredProducts.length === 0 ? (
         <ActivityIndicator size="large" color="#2196F3" style={styles.loader} />
       ) : (
         <FlatList
-          data={products}
+          data={filteredProducts}
           keyExtractor={item => item.id!.toString()}
           renderItem={renderProduct}
           contentContainerStyle={styles.list}
           ListEmptyComponent={
             <Text style={styles.emptyText}>
-              No hay productos. Agrega tu primer producto.
+              {searchTerm.trim() !== '' 
+                ? `No se encontraron productos con "${searchTerm}"`
+                : 'No hay productos. Agrega tu primer producto.'
+              }
             </Text>
           }
         />
@@ -484,6 +527,32 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
     fontSize: 16,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 8,
+    borderRadius: 8,
+    elevation: 1,
+    paddingHorizontal: 12,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    paddingVertical: 12,
+    color: '#333',
+  },
+  clearButton: {
+    padding: 8,
+    marginLeft: 8,
+  },
+  clearButtonText: {
+    fontSize: 18,
+    color: '#999',
+    fontWeight: 'bold',
   },
 });
 

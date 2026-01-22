@@ -26,6 +26,12 @@ export const UsersScreen: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
+  const [resetPinModalVisible, setResetPinModalVisible] = useState(false);
+  const [resetPinUser, setResetPinUser] = useState<User | null>(null);
+  const [newPin, setNewPin] = useState('');
+  const [confirmNewPin, setConfirmNewPin] = useState('');
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     username: '',
     pin: '',
@@ -53,18 +59,35 @@ export const UsersScreen: React.FC = () => {
     }
   };
 
-  const openModal = () => {
-    setFormData({
-      username: '',
-      pin: '',
-      confirmPin: '',
-      role: 'seller',
-    });
+  const openModal = (user?: User) => {
+    if (user) {
+      // Modo edición
+      setEditingUser(user);
+      setIsEditing(true);
+      setFormData({
+        username: user.username,
+        pin: '',
+        confirmPin: '',
+        role: user.role,
+      });
+    } else {
+      // Modo creación
+      setEditingUser(null);
+      setIsEditing(false);
+      setFormData({
+        username: '',
+        pin: '',
+        confirmPin: '',
+        role: 'seller',
+      });
+    }
     setModalVisible(true);
   };
 
   const closeModal = () => {
     setModalVisible(false);
+    setEditingUser(null);
+    setIsEditing(false);
     setFormData({
       username: '',
       pin: '',
@@ -84,19 +107,22 @@ export const UsersScreen: React.FC = () => {
       return false;
     }
 
-    if (!formData.pin.trim()) {
-      Alert.alert('Error', 'El PIN es requerido');
-      return false;
-    }
+    // Solo validar PIN en modo creación
+    if (!isEditing) {
+      if (!formData.pin.trim()) {
+        Alert.alert('Error', 'El PIN es requerido');
+        return false;
+      }
 
-    if (formData.pin.length < 4) {
-      Alert.alert('Error', 'El PIN debe tener al menos 4 dígitos');
-      return false;
-    }
+      if (formData.pin.length < 4) {
+        Alert.alert('Error', 'El PIN debe tener al menos 4 dígitos');
+        return false;
+      }
 
-    if (formData.pin !== formData.confirmPin) {
-      Alert.alert('Error', 'Los PINs no coinciden');
-      return false;
+      if (formData.pin !== formData.confirmPin) {
+        Alert.alert('Error', 'Los PINs no coinciden');
+        return false;
+      }
     }
 
     return true;
@@ -132,6 +158,52 @@ export const UsersScreen: React.FC = () => {
         Alert.alert('Error', 'Ya existe un usuario con ese nombre');
       } else {
         Alert.alert('Error', 'No se pudo crear el usuario');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateUser = async () => {
+    if (!editingUser) return;
+
+    // Validar username
+    if (!formData.username.trim()) {
+      Alert.alert('Error', 'El nombre de usuario es requerido');
+      return;
+    }
+
+    if (formData.username.length < 3) {
+      Alert.alert('Error', 'El nombre de usuario debe tener al menos 3 caracteres');
+      return;
+    }
+
+    // Verificar si está cambiando el role del último admin
+    if (editingUser.role === 'admin' && formData.role === 'seller') {
+      const activeAdmins = users.filter(u => u.role === 'admin' && u.is_active);
+      if (activeAdmins.length === 1) {
+        Alert.alert(
+          'Error',
+          'No puedes cambiar el rol del último administrador activo'
+        );
+        return;
+      }
+    }
+
+    try {
+      setLoading(true);
+
+      await db.updateUser(editingUser.id!, formData.username.trim(), formData.role);
+
+      Alert.alert('Éxito', 'Usuario actualizado correctamente');
+      closeModal();
+      loadUsers();
+    } catch (error: any) {
+      console.error('Error al actualizar usuario:', error);
+      if (error.message?.includes('UNIQUE constraint')) {
+        Alert.alert('Error', 'Ya existe un usuario con ese nombre');
+      } else {
+        Alert.alert('Error', 'No se pudo actualizar el usuario');
       }
     } finally {
       setLoading(false);
@@ -182,38 +254,95 @@ export const UsersScreen: React.FC = () => {
     );
   };
 
-  const handleResetPin = (user: User) => {
-    Alert.prompt(
-      'Resetear PIN',
-      `Ingresa el nuevo PIN para "${user.username}"`,
+  const openResetPinModal = (user: User) => {
+    setResetPinUser(user);
+    setNewPin('');
+    setConfirmNewPin('');
+    setResetPinModalVisible(true);
+  };
+
+  const closeResetPinModal = () => {
+    setResetPinModalVisible(false);
+    setResetPinUser(null);
+    setNewPin('');
+    setConfirmNewPin('');
+  };
+
+  const handleResetPin = async () => {
+    if (!resetPinUser) return;
+
+    if (!newPin.trim()) {
+      Alert.alert('Error', 'El PIN es requerido');
+      return;
+    }
+
+    if (newPin.length < 4) {
+      Alert.alert('Error', 'El PIN debe tener al menos 4 dígitos');
+      return;
+    }
+
+    if (newPin !== confirmNewPin) {
+      Alert.alert('Error', 'Los PINs no coinciden');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const salt = await cryptoService.generateSalt();
+      const hash = await cryptoService.hashPin(newPin, salt);
+      await db.updateUserPin(resetPinUser.id!, salt, hash);
+      Alert.alert('Éxito', 'PIN actualizado correctamente');
+      closeResetPinModal();
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo actualizar el PIN');
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteUser = (user: User) => {
+    // No permitir eliminar el último admin activo
+    if (user.role === 'admin' && user.is_active) {
+      const activeAdmins = users.filter(u => u.role === 'admin' && u.is_active);
+      if (activeAdmins.length === 1) {
+        Alert.alert(
+          'Error',
+          'No puedes eliminar el último administrador activo'
+        );
+        return;
+      }
+    }
+
+    // No permitir auto-eliminación
+    if (user.id === currentUser?.id) {
+      Alert.alert('Error', 'No puedes eliminar tu propia cuenta');
+      return;
+    }
+
+    Alert.alert(
+      'Confirmar eliminación',
+      `¿Estás seguro de eliminar al usuario "${user.username}"?\n\nEsta acción no se puede deshacer.`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
-          text: 'Confirmar',
-          onPress: async (newPin?: string) => {
-            if (!newPin || newPin.length < 4) {
-              Alert.alert('Error', 'El PIN debe tener al menos 4 dígitos');
-              return;
-            }
-
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
             try {
               setLoading(true);
-              const salt = await cryptoService.generateSalt();
-              const hash = await cryptoService.hashPin(newPin, salt);
-              await db.updateUserPin(user.id!, salt, hash);
-              Alert.alert('Éxito', 'PIN actualizado correctamente');
+              await db.deleteUser(user.id!);
+              Alert.alert('Éxito', 'Usuario eliminado correctamente');
+              loadUsers();
             } catch (error) {
-              Alert.alert('Error', 'No se pudo actualizar el PIN');
+              Alert.alert('Error', 'No se pudo eliminar el usuario');
               console.error(error);
             } finally {
               setLoading(false);
             }
           },
         },
-      ],
-      'secure-text',
-      '',
-      'number-pad'
+      ]
     );
   };
 
@@ -243,21 +372,33 @@ export const UsersScreen: React.FC = () => {
       </View>
       <View style={styles.userActions}>
         <TouchableOpacity
+          style={[styles.actionButton, styles.editButton]}
+          onPress={() => openModal(item)}
+        >
+          <Text style={styles.actionButtonText}>Editar</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
           style={[styles.actionButton, styles.toggleButton]}
           onPress={() => handleToggleActive(item)}
         >
           <Text style={styles.actionButtonText}>
-            {item.is_active ? '🔒' : '🔓'}
+            {item.is_active ? 'Desactivar' : 'Activar'}
           </Text>
         </TouchableOpacity>
         {item.role === 'seller' && (
           <TouchableOpacity
             style={[styles.actionButton, styles.resetButton]}
-            onPress={() => handleResetPin(item)}
+            onPress={() => openResetPinModal(item)}
           >
-            <Text style={styles.actionButtonText}>🔑</Text>
+            <Text style={styles.actionButtonText}>Reset PIN</Text>
           </TouchableOpacity>
         )}
+        <TouchableOpacity
+          style={[styles.actionButton, styles.deleteButton]}
+          onPress={() => handleDeleteUser(item)}
+        >
+          <Text style={styles.actionButtonText}>Eliminar</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -281,7 +422,7 @@ export const UsersScreen: React.FC = () => {
         <Text style={styles.title}>Gestión de Usuarios</Text>
         <TouchableOpacity
           style={styles.addButton}
-          onPress={openModal}
+          onPress={() => openModal()}
         >
           <Text style={styles.addButtonText}>+ Crear</Text>
         </TouchableOpacity>
@@ -317,7 +458,9 @@ export const UsersScreen: React.FC = () => {
               <TouchableWithoutFeedback onPress={() => {}}>
                 <View style={styles.modalContent}>
                   <View style={styles.modalHeader}>
-                    <Text style={styles.modalTitle}>Nuevo Usuario</Text>
+                    <Text style={styles.modalTitle}>
+                      {isEditing ? 'Editar Usuario' : 'Nuevo Usuario'}
+                    </Text>
                     <TouchableOpacity onPress={closeModal}>
                       <Text style={styles.closeButton}>✕</Text>
                     </TouchableOpacity>
@@ -327,6 +470,7 @@ export const UsersScreen: React.FC = () => {
                     style={styles.formScroll}
                     keyboardShouldPersistTaps="handled"
                     showsVerticalScrollIndicator={false}
+                    scrollEnabled={!isEditing}
                   >
                     <View style={styles.form}>
                       <Text style={styles.label}>Nombre de usuario</Text>
@@ -376,11 +520,101 @@ export const UsersScreen: React.FC = () => {
                         </TouchableOpacity>
                       </View>
 
-                      <Text style={styles.label}>PIN (mínimo 4 dígitos)</Text>
+                      {!isEditing && (
+                        <>
+                          <Text style={styles.label}>PIN (mínimo 4 dígitos)</Text>
+                          <TextInput
+                            style={styles.input}
+                            value={formData.pin}
+                            onChangeText={text => setFormData({ ...formData, pin: text })}
+                            returnKeyType="next"
+                            placeholder="****"
+                            placeholderTextColor="#999"
+                            secureTextEntry
+                            keyboardType="number-pad"
+                            maxLength={6}
+                          />
+
+                          <Text style={styles.label}>Confirmar PIN</Text>
+                          <TextInput
+                            style={styles.input}
+                            value={formData.confirmPin}
+                            onChangeText={text => setFormData({ ...formData, confirmPin: text })}
+                            returnKeyType="done"
+                            placeholder="****"
+                            placeholderTextColor="#999"
+                            secureTextEntry
+                            keyboardType="number-pad"
+                            maxLength={6}
+                          />
+                        </>
+                      )}
+
+                      <View style={styles.formButtons}>
+                        <TouchableOpacity
+                          style={styles.cancelButton}
+                          onPress={closeModal}
+                        >
+                          <Text style={styles.cancelButtonText}>Cancelar</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.saveButton}
+                          onPress={isEditing ? handleUpdateUser : handleCreateUser}
+                          disabled={loading}
+                        >
+                          {loading ? (
+                            <ActivityIndicator color="#fff" />
+                          ) : (
+                            <Text style={styles.saveButtonText}>
+                              {isEditing ? 'Actualizar' : 'Crear'}
+                            </Text>
+                          )}
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </ScrollView>
+                </View>
+              </TouchableWithoutFeedback>
+            </KeyboardAvoidingView>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+
+      {/* Modal de Resetear PIN */}
+      <Modal
+        visible={resetPinModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={closeResetPinModal}
+      >
+        <TouchableWithoutFeedback onPress={closeResetPinModal}>
+          <View style={styles.modalOverlay}>
+            <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+              style={styles.keyboardView}
+            >
+              <TouchableWithoutFeedback onPress={() => {}}>
+                <View style={styles.modalContent}>
+                  <View style={styles.modalHeader}>
+                    <Text style={styles.modalTitle}>
+                      Resetear PIN - {resetPinUser?.username}
+                    </Text>
+                    <TouchableOpacity onPress={closeResetPinModal}>
+                      <Text style={styles.closeButton}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <ScrollView 
+                    style={styles.formScroll}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}
+                  >
+                    <View style={styles.form}>
+                      <Text style={styles.label}>Nuevo PIN (mínimo 4 dígitos)</Text>
                       <TextInput
                         style={styles.input}
-                        value={formData.pin}
-                        onChangeText={text => setFormData({ ...formData, pin: text })}
+                        value={newPin}
+                        onChangeText={setNewPin}
                         returnKeyType="next"
                         placeholder="****"
                         placeholderTextColor="#999"
@@ -389,11 +623,11 @@ export const UsersScreen: React.FC = () => {
                         maxLength={6}
                       />
 
-                      <Text style={styles.label}>Confirmar PIN</Text>
+                      <Text style={styles.label}>Confirmar nuevo PIN</Text>
                       <TextInput
                         style={styles.input}
-                        value={formData.confirmPin}
-                        onChangeText={text => setFormData({ ...formData, confirmPin: text })}
+                        value={confirmNewPin}
+                        onChangeText={setConfirmNewPin}
                         returnKeyType="done"
                         placeholder="****"
                         placeholderTextColor="#999"
@@ -405,19 +639,19 @@ export const UsersScreen: React.FC = () => {
                       <View style={styles.formButtons}>
                         <TouchableOpacity
                           style={styles.cancelButton}
-                          onPress={closeModal}
+                          onPress={closeResetPinModal}
                         >
                           <Text style={styles.cancelButtonText}>Cancelar</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                           style={styles.saveButton}
-                          onPress={handleCreateUser}
+                          onPress={handleResetPin}
                           disabled={loading}
                         >
                           {loading ? (
                             <ActivityIndicator color="#fff" />
                           ) : (
-                            <Text style={styles.saveButtonText}>Crear</Text>
+                            <Text style={styles.saveButtonText}>Actualizar PIN</Text>
                           )}
                         </TouchableOpacity>
                       </View>
@@ -487,12 +721,9 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 12,
     elevation: 2,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
   },
   userInfo: {
-    flex: 1,
+    marginBottom: 12,
   },
   userHeader: {
     flexDirection: 'row',
@@ -552,23 +783,34 @@ const styles = StyleSheet.create({
   },
   userActions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
+    justifyContent: 'flex-end',
   },
   actionButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
     justifyContent: 'center',
     alignItems: 'center',
+    minWidth: 90,
+  },
+  editButton: {
+    backgroundColor: '#FF9800',
   },
   toggleButton: {
-    backgroundColor: '#FF9800',
+    backgroundColor: '#607D8B',
   },
   resetButton: {
     backgroundColor: '#9C27B0',
   },
+  deleteButton: {
+    backgroundColor: '#f44336',
+  },
   actionButtonText: {
-    fontSize: 20,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#fff',
   },
   errorContainer: {
     flex: 1,
@@ -602,7 +844,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     width: '90%',
     maxWidth: 500,
-    maxHeight: '90%',
+    maxHeight: '98%',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -624,7 +866,7 @@ const styles = StyleSheet.create({
   },
   form: {
     padding: 16,
-    paddingBottom: 8,
+    paddingBottom: 16,
   },
   label: {
     fontSize: 14,

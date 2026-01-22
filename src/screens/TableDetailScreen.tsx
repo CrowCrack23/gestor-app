@@ -396,17 +396,38 @@ export const TableDetailScreen: React.FC<Props> = ({ route }) => {
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <Text style={styles.title}>Mesa {tableNumber}</Text>
-          <TouchableOpacity
-            style={styles.cancelButton}
-            onPress={handleCancelTable}
-            disabled={loading}
-          >
-            <Text style={styles.cancelButtonText}>✕ Cancelar</Text>
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={handleCancelTable}
+              disabled={loading}
+            >
+              <Text style={styles.cancelButtonText}>✕ Cancelar</Text>
+            </TouchableOpacity>
+            {tableOrder.items && tableOrder.items.length > 0 && (
+              <TouchableOpacity
+                style={styles.headerCheckoutButton}
+                onPress={handleCheckout}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.headerCheckoutText}>Cobrar</Text>
+                )}
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
         <Text style={styles.subtitle}>
           {tableOrder.items?.length || 0} productos
         </Text>
+        {tableOrder.items && tableOrder.items.length > 0 && (
+          <View style={styles.headerTotalRow}>
+            <Text style={styles.headerTotalLabel}>Total:</Text>
+            <Text style={styles.headerTotalAmount}>{formatCurrency(tableOrder.subtotal)}</Text>
+          </View>
+        )}
       </View>
 
       {/* Buscador */}
@@ -536,30 +557,6 @@ export const TableDetailScreen: React.FC<Props> = ({ route }) => {
           />
         )}
       </View>
-
-      {/* Footer con total y botón de cobrar */}
-      {tableOrder.items && tableOrder.items.length > 0 && (
-        <View style={styles.footer}>
-          <View style={styles.totalContainer}>
-            <Text style={styles.totalLabel}>TOTAL:</Text>
-            <Text style={styles.totalAmount}>
-              {formatCurrency(tableOrder.subtotal)}
-            </Text>
-          </View>
-
-          <TouchableOpacity
-            style={styles.checkoutButton}
-            onPress={handleCheckout}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.checkoutButtonText}>💰 COBRAR</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-      )}
 
       {/* Barra inferior flotante con resumen del carrito */}
       {cart.length > 0 && (
@@ -732,6 +729,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
@@ -741,6 +743,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
   },
+  headerTotalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+  },
+  headerTotalLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+  },
+  headerTotalAmount: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#4CAF50',
+  },
   cancelButton: {
     backgroundColor: '#f44336',
     paddingHorizontal: 12,
@@ -748,6 +769,17 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   cancelButtonText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  headerCheckoutButton: {
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  headerCheckoutText: {
     color: '#fff',
     fontSize: 13,
     fontWeight: '600',
@@ -946,46 +978,6 @@ const styles = StyleSheet.create({
   removeButtonText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: 'bold',
-  },
-  footer: {
-    backgroundColor: '#fff',
-    padding: 16,
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  totalContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-    paddingVertical: 12,
-    borderTopWidth: 2,
-    borderTopColor: '#e0e0e0',
-  },
-  totalLabel: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  totalAmount: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#4CAF50',
-  },
-  checkoutButton: {
-    backgroundColor: '#4CAF50',
-    padding: 18,
-    borderRadius: 8,
-    alignItems: 'center',
-    elevation: 4,
-  },
-  checkoutButtonText: {
-    color: '#fff',
-    fontSize: 20,
     fontWeight: 'bold',
   },
   // Estilos para modo rápido
